@@ -15,6 +15,20 @@
 - Normalize aircraft data.
 - Unit tests for parsing.
 
+Note: Modern `readsb` setups can provide a continuous JSON stream over TCP (default port `30001`). A Windows app can open a TCP connection to `tcp://<pi-ip>:30001` and read newline-delimited JSON objects for real-time ingestion. Example message:
+
+```json
+{
+  "hex": "A1B2C3",
+  "flight": "DAL123",
+  "alt_baro": 32000,
+  "lat": 28.1234,
+  "lon": -81.2345,
+  "track": 270,
+  "speed": 450
+}
+```
+
 ### Milestone 3 — Event Detection
 - Implement overhead detection.
 - Implement behavior classification rules (non‑ML baseline).

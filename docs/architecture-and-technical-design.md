@@ -35,6 +35,28 @@ Sky Pattern Hunter follows Clean Architecture with four layers:
 - Parses raw messages.
 - Converts to domain models.
 
+#### Ingestion: `readsb` JSON-over-TCP
+
+Modern `readsb` setups on a Raspberry Pi can expose a continuous, newline-delimited JSON stream over TCP (commonly port `30001`). The recommended ingestion flow is:
+
+- `readsb` on Pi → TCP stream (`tcp://<pi-ip>:30001`) sending one JSON object per line.
+- Ingestion component: a small TCP client that reads each line, parses JSON, and maps fields into the existing normalization pipeline.
+- Normalizer/validator converts raw JSON fields (e.g., `hex`, `flight`, `alt_baro`, `lat`, `lon`, `track`, `speed`) into domain `Aircraft` models.
+- Hand the normalized domain objects to the event detection pipeline or persist as JSONL for ML training.
+
+Configuration keys to add or document:
+
+- `readsb.host` — hostname or IP of the Raspberry Pi (default: `127.0.0.1`).
+- `readsb.port` — TCP port for JSON stream (default: `30001`).
+- `readsb.mode` — `json` | `raw` (choose parser behavior).
+- `readsb.reconnect` — backoff and retry policy settings.
+
+Notes:
+
+- The ingestion client should be resilient: reconnect on disconnect, skip malformed JSON lines with logs, and optionally buffer a small number of messages when downstream is back‑pressured.
+- For Windows UI or services, prefer reading and parsing JSON line-by-line rather than trying to parse a continuous byte stream into discrete JSON objects.
+
+
 ### ML Subsystem
 - ML.NET pipelines:
   - Busy time prediction (regression).
