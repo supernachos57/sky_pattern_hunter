@@ -110,6 +110,10 @@ Note: Modern `readsb` setups can provide a continuous JSON stream over TCP (defa
 
 ---
 
+## Phased Backlog
+
+For implementation, a phased approach is recommended. The project should be built in small, testable increments rather than attempting all major subsystems at once. A detailed backlog organized by phase is available in [phased-backlog.md](phased-backlog.md), and the first implementation-ready issue set is in [phase-1-issues.md](phase-1-issues.md).
+
 ## Testing Strategy
 
 ### Unit Tests
