@@ -1,0 +1,57 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{536C21E3-F369-4142-AEB4-E59384CF6B1E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkyPatternHunter.Domain", "src\SkyPatternHunter.Domain\SkyPatternHunter.Domain.csproj", "{E6F90C54-84D2-4EC4-8C70-9697ED662710}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkyPatternHunter.Application", "src\SkyPatternHunter.Application\SkyPatternHunter.Application.csproj", "{8D687700-2FD5-42C4-862B-42560FD2144C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkyPatternHunter.Infrastructure", "src\SkyPatternHunter.Infrastructure\SkyPatternHunter.Infrastructure.csproj", "{E938BC2F-4606-4980-8EB0-FD241295FCCD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkyPatternHunter.Presentation", "src\SkyPatternHunter.Presentation\SkyPatternHunter.Presentation.csproj", "{32F85481-F1C8-4DF4-B18D-E7AE58E0AB0D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{D2AF0D68-F289-4107-8DB5-8171234AD910}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkyPatternHunter.SmokeTests", "tests\SkyPatternHunter.SmokeTests\SkyPatternHunter.SmokeTests.csproj", "{47C7EF3B-5A8F-49ED-96FB-F6D4C2B89C9B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E6F90C54-84D2-4EC4-8C70-9697ED662710}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E6F90C54-84D2-4EC4-8C70-9697ED662710}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E6F90C54-84D2-4EC4-8C70-9697ED662710}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E6F90C54-84D2-4EC4-8C70-9697ED662710}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8D687700-2FD5-42C4-862B-42560FD2144C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8D687700-2FD5-42C4-862B-42560FD2144C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8D687700-2FD5-42C4-862B-42560FD2144C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8D687700-2FD5-42C4-862B-42560FD2144C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E938BC2F-4606-4980-8EB0-FD241295FCCD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E938BC2F-4606-4980-8EB0-FD241295FCCD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E938BC2F-4606-4980-8EB0-FD241295FCCD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E938BC2F-4606-4980-8EB0-FD241295FCCD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{32F85481-F1C8-4DF4-B18D-E7AE58E0AB0D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{32F85481-F1C8-4DF4-B18D-E7AE58E0AB0D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{32F85481-F1C8-4DF4-B18D-E7AE58E0AB0D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{32F85481-F1C8-4DF4-B18D-E7AE58E0AB0D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{47C7EF3B-5A8F-49ED-96FB-F6D4C2B89C9B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{47C7EF3B-5A8F-49ED-96FB-F6D4C2B89C9B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{47C7EF3B-5A8F-49ED-96FB-F6D4C2B89C9B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{47C7EF3B-5A8F-49ED-96FB-F6D4C2B89C9B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{E6F90C54-84D2-4EC4-8C70-9697ED662710} = {536C21E3-F369-4142-AEB4-E59384CF6B1E}
+		{8D687700-2FD5-42C4-862B-42560FD2144C} = {536C21E3-F369-4142-AEB4-E59384CF6B1E}
+		{E938BC2F-4606-4980-8EB0-FD241295FCCD} = {536C21E3-F369-4142-AEB4-E59384CF6B1E}
+		{32F85481-F1C8-4DF4-B18D-E7AE58E0AB0D} = {536C21E3-F369-4142-AEB4-E59384CF6B1E}
+		{47C7EF3B-5A8F-49ED-96FB-F6D4C2B89C9B} = {D2AF0D68-F289-4107-8DB5-8171234AD910}
+	EndGlobalSection
+EndGlobal
