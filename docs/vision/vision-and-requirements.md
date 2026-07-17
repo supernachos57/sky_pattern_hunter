@@ -11,7 +11,8 @@ The long‑term vision is a fully autonomous, low‑CPU, extendable system that 
 - Real‑time aircraft detection and logging.
 - Predict busy times and flight patterns using ML.NET.
 - Classify aircraft behavior and detect anomalies.
-- Notify the user via SMS when a plane passes overhead.
+- Notify the user through Discord direct messages when a plane passes overhead.
+- Provide a simple, easy-to-use desktop UI that keeps the experience approachable.
 - Maintain high testability and clean architecture.
 - Support future expansion to non‑commercial aircraft and additional antennas.
 
@@ -36,8 +37,15 @@ The long‑term vision is a fully autonomous, low‑CPU, extendable system that 
 - Predict next overhead pass.
 
 ### Notifications
-- Send SMS via Twilio or local gateway.
-- Configurable notification rules.
+- Send Discord direct messages via a Discord bot integration.
+- Support per-user notification preferences and rate limiting.
+- Configurable notification rules for event types and thresholds.
+
+### Data Volume Management
+- Keep disk usage bounded with retention policies such as rolling windows, automatic pruning, and archive-to-compressed-file strategies.
+- Store only the most valuable raw events for a limited period and roll up older data into summaries.
+- Use compact formats such as compressed JSONL or CSV for historical records.
+- Allow configurable limits for raw event retention, model training data, and log history.
 
 ### Configuration
 - All settings stored in JSON/YAML files.

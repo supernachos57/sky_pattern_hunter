@@ -43,18 +43,20 @@ Note: Modern `readsb` setups can provide a continuous JSON stream over TCP (defa
 - Unit tests using ML.NET test data.
 
 ### Milestone 5 — Notifications
-- Integrate SMS provider.
-- Add rate limiting.
+- Integrate Discord direct-message provider.
+- Add rate limiting and notification preferences.
 - Add configuration for notification rules.
 
 ### Milestone 6 — UI
-- Build Windows desktop UI.
+- Build a simple Windows desktop UI.
+- Choose a relatively simple, easy-to-use layout for the first version.
 - Real‑time aircraft list.
 - Event log viewer.
 - Settings editor.
 
 ### Milestone 7 — Hardening
 - Add high‑coverage tests.
+- Implement retention and roll-up policies to control disk usage.
 - Add performance monitoring.
 - Add configuration validation.
 - Add documentation.
@@ -89,9 +91,9 @@ Note: Modern `readsb` setups can provide a continuous JSON stream over TCP (defa
 - [ ] Write ML tests  
 
 ### Epic: Notifications
-- [ ] Add SMS provider  
+- [ ] Add Discord DM provider  
 - [ ] Add notification rules  
-- [ ] Add rate limiting  
+- [ ] Add rate limiting and preferences  
 - [ ] Write notification tests  
 
 ### Epic: UI
@@ -103,6 +105,7 @@ Note: Modern `readsb` setups can provide a continuous JSON stream over TCP (defa
 ### Epic: Hardening
 - [ ] Add performance monitoring  
 - [ ] Add configuration validation  
+- [ ] Add data retention and storage management  
 - [ ] Add documentation  
 
 ---

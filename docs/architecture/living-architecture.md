@@ -9,9 +9,9 @@ This document evolves with the system. Every architectural decision, change, and
 
 # 1. System Overview
 
-Sky Pattern Hunter is a modular aircraft-tracking intelligence system built using Clean Architecture. It ingests ADS‑B signals, processes aircraft telemetry, applies ML.NET models, and triggers notifications.
+Sky Pattern Hunter is a modular aircraft-tracking intelligence system built using Clean Architecture. It ingests ADS‑B signals, processes aircraft telemetry, applies ML.NET models, and triggers notifications through Discord direct messages.
 
-The system is designed to run continuously with low CPU usage and high extensibility.
+The system is designed to run continuously with low CPU usage, high extensibility, and a simple user experience.
 
 ---
 
@@ -24,6 +24,8 @@ The system is designed to run continuously with low CPU usage and high extensibi
 - Minimal external dependencies  
 - Predictive analytics using ML.NET  
 - Real-time event detection  
+- Discord-based notifications for overhead events  
+- A simple, approachable desktop UI for first-version usability  
 
 ---
 
@@ -44,12 +46,12 @@ The system is designed to run continuously with low CPU usage and high extensibi
 ## 3.3 Infrastructure Layer
 - ADS‑B ingestion  
 - ML.NET pipelines  
-- SMS provider  
-- JSONL storage  
+- Discord DM provider  
+- JSONL storage with retention controls  
 - Configuration loader  
 
 ## 3.4 Presentation Layer
-- Windows UI  
+- Simple Windows UI  
 - Real-time aircraft list  
 - Event viewer  
 - Settings editor  
@@ -66,8 +68,8 @@ flowchart LR
     DomainModels --> EventDetect["Event Detection"]
     EventDetect --> MLPredict["ML.NET Predictions"]
     MLPredict --> EventStream["Event Stream"]
-    EventStream --> NotifyService["SMS Notification Service"]
-    EventStream --> DesktopUI["Desktop UI"]
+    EventStream --> NotifyService["Discord DM Notification Service"]
+    EventStream --> DesktopUI["Simple Desktop UI"]
     EventStream --> JsonStorage["JSONL Storage"]
 ```
 ---
@@ -97,7 +99,7 @@ flowchart LR
     DesktopApp --> ADSBIngest["ADS-B Ingestion Module"]
     ADSBIngest --> PiDevice["Raspberry Pi + RTL-SDR"]
     DesktopApp --> MLModule["ML.NET Module"]
-    DesktopApp --> NotifyModule["SMS Notification Module"]
+    DesktopApp --> NotifyModule["Discord Notification Module"]
     DesktopApp --> StorageModule["JSONL Storage"]
 ```
 
@@ -112,7 +114,7 @@ flowchart TD
 
     Infrastructure --> ADSB["ADS-B Reader"]
     Infrastructure --> ML["ML.NET Pipelines"]
-    Infrastructure --> SMS["SMS Provider"]
+    Infrastructure --> Discord["Discord DM Provider"]
     Infrastructure --> Config["Configuration Loader"]
     Infrastructure --> Storage["JSONL Storage"]
 ```
@@ -158,5 +160,5 @@ flowchart LR
     LocalNet --> Pi["Raspberry Pi 5"]
     Pi --> SDR["RTL-SDR v5 + 1090 MHz Antenna"]
 
-    Windows --> SMSAPI["SMS Provider (Twilio or Local Gateway)"]
+    Windows --> DiscordAPI["Discord Bot / API"]
 ```

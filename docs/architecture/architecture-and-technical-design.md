@@ -16,12 +16,12 @@ Sky Pattern Hunter follows Clean Architecture with four layers:
 ### 3. Infrastructure Layer
 - ADS‑B data reader (TCP/HTTP from Raspberry Pi).
 - ML.NET model trainers + predictors.
-- SMS notification provider.
-- File-based storage (JSONL).
+- Discord notification provider.
+- File-based storage (JSONL), with retention and summarization controls.
 - Configuration loader.
 
 ### 4. Presentation Layer
-- Windows desktop UI (WPF or WinUI 3).
+- Simple, easy-to-use Windows desktop UI (WPF or WinUI 3).
 - Real‑time console log panel.
 - Settings editor.
 - Aircraft visualization.
@@ -70,8 +70,9 @@ Notes:
 - Event logging.
 
 ### Notification Subsystem
-- SMS sender (Twilio or local gateway).
-- Rate limiting.
+- Discord DM sender using a bot integration.
+- Rate limiting and per-user opt-in/opt-out support.
+- Event-to-notification mapping and cooldown rules.
 
 ### Storage Subsystem
 **Recommended first-version storage:**  
@@ -80,6 +81,12 @@ Notes:
 - Easy to parse.  
 - Works well with ML.NET.  
 - Low CPU overhead.  
+
+To manage limited disk space:
+- Apply retention windows for raw events (for example, keep 7-30 days of raw data and archive older data).
+- Roll up older records into summarized datasets for trend analysis.
+- Compress archived files and rotate logs.
+- Make storage limits configurable so the app can self-prune when disk usage approaches a threshold.
 
 ### Configuration Subsystem
 - JSON/YAML config files.
@@ -99,25 +106,27 @@ Notes:
 
 ## Solution Structure
 
+```text
 SkyPatternHunter/
-src/
-SkyPatternHunter.Domain/
-SkyPatternHunter.Application/
-SkyPatternHunter.Infrastructure/
-SkyPatternHunter.Presentation/
-tests/
-SkyPatternHunter.Domain.Tests/
-SkyPatternHunter.Application.Tests/
-SkyPatternHunter.Infrastructure.Tests/
-docs/
-architecture/
-roadmap/
-vision/
-config/
-appsettings.json
-ml/
-busyTimeModel.zip
-behaviorModel.zip
+├── src/
+│   ├── SkyPatternHunter.Domain/
+│   ├── SkyPatternHunter.Application/
+│   ├── SkyPatternHunter.Infrastructure/
+│   └── SkyPatternHunter.Presentation/
+├── tests/
+│   ├── SkyPatternHunter.Domain.Tests/
+│   ├── SkyPatternHunter.Application.Tests/
+│   └── SkyPatternHunter.Infrastructure.Tests/
+├── docs/
+│   ├── architecture/
+│   ├── roadmap/
+│   ├── vision/
+│   └── config/
+├── appsettings.json
+├── ml/
+│   ├── busyTimeModel.zip
+│   └── behaviorModel.zip
+```
 
 
 ---
