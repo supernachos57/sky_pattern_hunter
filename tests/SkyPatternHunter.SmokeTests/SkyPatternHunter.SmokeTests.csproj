@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\SkyPatternHunter.Domain\SkyPatternHunter.Domain.csproj" />
     <ProjectReference Include="..\..\src\SkyPatternHunter.Application\SkyPatternHunter.Application.csproj" />
+    <ProjectReference Include="..\..\src\SkyPatternHunter.Infrastructure\SkyPatternHunter.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
