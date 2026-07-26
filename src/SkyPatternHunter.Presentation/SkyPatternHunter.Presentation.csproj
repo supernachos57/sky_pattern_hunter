@@ -1,9 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SkyPatternHunter.Domain\SkyPatternHunter.Domain.csproj" />
+    <ProjectReference Include="..\SkyPatternHunter.Infrastructure\SkyPatternHunter.Infrastructure.csproj" />
+  </ItemGroup>
 
 </Project>
