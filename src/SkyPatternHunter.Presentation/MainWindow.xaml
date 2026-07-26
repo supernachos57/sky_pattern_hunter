@@ -1,0 +1,89 @@
+<Window x:Class="SkyPatternHunter.Presentation.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Sky Pattern Hunter"
+        Width="1120"
+        Height="720"
+        Background="#0F172A"
+        Foreground="#E2E8F0">
+    <Window.Resources>
+        <SolidColorBrush x:Key="CardBackground" Color="#172033" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#38BDF8" />
+        <SolidColorBrush x:Key="MutedBrush" Color="#94A3B8" />
+    </Window.Resources>
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="20" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="Sky Pattern Hunter" FontSize="30" FontWeight="SemiBold" />
+            <TextBlock Text="A simple desktop shell for overhead aircraft tracking"
+                       Foreground="{StaticResource MutedBrush}"
+                       Margin="0,6,0,0" />
+        </StackPanel>
+
+        <Border Grid.Row="2" Background="{StaticResource CardBackground}" CornerRadius="16" Padding="20">
+            <StackPanel>
+                <TextBlock Text="Dashboard" FontSize="20" FontWeight="SemiBold" />
+                <UniformGrid Columns="3" Margin="0,16,0,0">
+                    <Border Background="#0B1220" CornerRadius="12" Margin="0,0,12,0" Padding="16">
+                        <StackPanel>
+                            <TextBlock Text="Events captured" Foreground="{StaticResource MutedBrush}" />
+                            <TextBlock Text="{Binding EventCount}" FontSize="28" FontWeight="SemiBold" Margin="0,8,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="#0B1220" CornerRadius="12" Margin="0,0,12,0" Padding="16">
+                        <StackPanel>
+                            <TextBlock Text="Latest aircraft" Foreground="{StaticResource MutedBrush}" />
+                            <TextBlock Text="{Binding LatestAircraftHex}" FontSize="28" FontWeight="SemiBold" Margin="0,8,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="#0B1220" CornerRadius="12" Padding="16">
+                        <StackPanel>
+                            <TextBlock Text="Last observed" Foreground="{StaticResource MutedBrush}" />
+                            <TextBlock Text="{Binding LatestObservedAtText}" FontSize="28" FontWeight="SemiBold" Margin="0,8,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </UniformGrid>
+            </StackPanel>
+        </Border>
+
+        <TabControl Grid.Row="4" Background="{StaticResource CardBackground}" BorderThickness="0" Padding="16">
+            <TabItem Header="Recent Events">
+                <ListView ItemsSource="{Binding Events}" Margin="0,12,0,0">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="Observed" DisplayMemberBinding="{Binding ObservedAtText}" Width="220" />
+                            <GridViewColumn Header="Hex" DisplayMemberBinding="{Binding AircraftHex}" Width="120" />
+                            <GridViewColumn Header="Flight" DisplayMemberBinding="{Binding Flight}" Width="140" />
+                            <GridViewColumn Header="Altitude" DisplayMemberBinding="{Binding AltitudeText}" Width="120" />
+                            <GridViewColumn Header="Speed" DisplayMemberBinding="{Binding SpeedText}" Width="100" />
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </TabItem>
+            <TabItem Header="Settings">
+                <StackPanel Margin="0,12,0,0">
+                    <TextBlock Text="Readsb host" Foreground="{StaticResource MutedBrush}" />
+                    <TextBox Text="127.0.0.1" Margin="0,6,0,14" Padding="10" />
+                    <TextBlock Text="Readsb port" Foreground="{StaticResource MutedBrush}" />
+                    <TextBox Text="30001" Margin="0,6,0,14" Padding="10" />
+                    <TextBlock Text="Notification prefix" Foreground="{StaticResource MutedBrush}" />
+                    <TextBox Text="Overhead alert" Margin="0,6,0,14" Padding="10" />
+                    <CheckBox Content="Enable Discord notifications" IsChecked="True" />
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Log">
+                <TextBox Text="Ready. The shell is wired to the current event journal." IsReadOnly="True" Margin="0,12,0,0" Padding="12" Background="#0B1220" Foreground="{StaticResource AccentBrush}" BorderThickness="0" />
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>
