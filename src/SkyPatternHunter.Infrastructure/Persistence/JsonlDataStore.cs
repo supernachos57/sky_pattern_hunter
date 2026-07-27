@@ -21,6 +21,17 @@ public sealed class JsonlDataStore
         File.AppendAllLines(path, new[] { line });
     }
 
+    public string WriteAll<T>(string fileName, IEnumerable<T> values)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
+        ArgumentNullException.ThrowIfNull(values);
+
+        var path = GetPath(fileName);
+        var lines = values.Select(value => JsonSerializer.Serialize(value)).ToArray();
+        File.WriteAllLines(path, lines);
+        return path;
+    }
+
     public IReadOnlyList<T> Read<T>(string fileName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
