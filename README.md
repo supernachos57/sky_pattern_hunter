@@ -47,6 +47,11 @@ Developer notes
 - Roadmap: see `docs/implementation-roadmap.md` for milestones and epics.
 - Sample client: `scripts/readsb_tcp_client.py` is a minimal reference implementation for Windows developers.
 
+Testing and monitoring
+- Run `dotnet test` from the repo root to validate the current solution.
+- Use `ApplicationSettingsValidator` to check that configuration values are supported before loading them into the app.
+- Use `StorageUsageMonitor` to inspect how much disk space the JSONL data, archive, or log folders are using.
+
 Contributing
 - Fork, create a feature branch, and open a pull request with tests and a short description of changes.
 
