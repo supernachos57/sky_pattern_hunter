@@ -6,22 +6,41 @@ namespace SkyPatternHunter.Infrastructure.AdsB;
 
 public sealed class AdsbParser
 {
-    public Aircraft Parse(string json)
+    public Aircraft Parse(string payload)
     {
-        var payload = JsonSerializer.Deserialize<AdsbMessage>(json, new JsonSerializerOptions
+        ArgumentException.ThrowIfNullOrWhiteSpace(payload);
+
+        var trimmedPayload = payload.Trim();
+        if (LooksLikeRawAdsbMessage(trimmedPayload))
+        {
+            var normalizedHex = trimmedPayload.Trim('*', ';');
+            return new Aircraft(normalizedHex, null, 0, 0, 0, 0, 0, null);
+        }
+
+        var message = JsonSerializer.Deserialize<AdsbMessage>(trimmedPayload, new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
         }) ?? throw new InvalidOperationException("Unable to parse ADS-B payload.");
 
         return new Aircraft(
-            payload.Hex ?? string.Empty,
-            payload.Flight,
-            payload.Lat ?? 0,
-            payload.Lon ?? 0,
-            payload.AltBaro ?? 0,
-            payload.Track ?? 0,
-            payload.Speed ?? 0,
-            payload.Squawk);
+            message.Hex ?? string.Empty,
+            message.Flight,
+            message.Lat ?? 0,
+            message.Lon ?? 0,
+            message.AltBaro ?? 0,
+            message.Track ?? 0,
+            message.Speed ?? 0,
+            message.Squawk);
+    }
+
+    private static bool LooksLikeRawAdsbMessage(string payload)
+    {
+        if (payload.StartsWith("*", StringComparison.Ordinal) && payload.EndsWith(";", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return payload.All(char.IsAsciiHexDigit);
     }
 
     private sealed class AdsbMessage
