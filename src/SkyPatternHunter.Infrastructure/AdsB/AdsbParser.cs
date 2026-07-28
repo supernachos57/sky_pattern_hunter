@@ -35,12 +35,7 @@ public sealed class AdsbParser
 
     private static bool LooksLikeRawAdsbMessage(string payload)
     {
-        if (payload.StartsWith("*", StringComparison.Ordinal) && payload.EndsWith(";", StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        return payload.All(char.IsAsciiHexDigit);
+        return payload.StartsWith("*", StringComparison.Ordinal) && payload.EndsWith(";", StringComparison.Ordinal);
     }
 
     private sealed class AdsbMessage
