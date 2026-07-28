@@ -36,6 +36,24 @@ public class AdsbParserTests
     }
 
     [Fact]
+    public void Parse_RawPiAdsbPayload_MapsHexToAircraftModel()
+    {
+        var parser = new AdsbParser();
+        const string payload = "*8DAA6ADEEA3CA858013C08A09877;";
+
+        Aircraft aircraft = parser.Parse(payload);
+
+        Assert.Equal("8DAA6ADEEA3CA858013C08A09877", aircraft.Hex);
+        Assert.Null(aircraft.Flight);
+        Assert.Equal(0, aircraft.Latitude);
+        Assert.Equal(0, aircraft.Longitude);
+        Assert.Equal(0, aircraft.Altitude);
+        Assert.Equal(0, aircraft.Track);
+        Assert.Equal(0, aircraft.Speed);
+        Assert.Null(aircraft.Squawk);
+    }
+
+    [Fact]
     public void Parse_ThrowsForInvalidJson()
     {
         var parser = new AdsbParser();
