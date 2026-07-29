@@ -76,4 +76,52 @@ public sealed class AdsbStartupHost
     }
 }
 
+public sealed class AdsbProcessingPipeline
+{
+    private readonly AdsbParser _parser = new();
+    private readonly IOverheadEventDetector _detector = new OverheadEventDetector();
+    private readonly OverheadEventJournal _journal;
+    private readonly ApplicationSettings _settings;
+
+    public AdsbProcessingPipeline(ApplicationSettings settings, OverheadEventJournal journal)
+    {
+        _settings = settings;
+        _journal = journal;
+    }
+
+    public async Task<AdsbStartupResult> ProcessAsync(IEnumerable<string> payloads, CancellationToken cancellationToken = default)
+    {
+        var processedCount = 0;
+        var detectedEventCount = 0;
+
+        foreach (var payload in payloads)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.IsNullOrWhiteSpace(payload))
+            {
+                continue;
+            }
+
+            var aircraft = _parser.Parse(payload);
+            processedCount++;
+
+            var overheadEvent = _detector.Detect(
+                aircraft,
+                _settings.UserLatitude,
+                _settings.UserLongitude,
+                _settings.DetectionThresholdMiles,
+                DateTimeOffset.UtcNow);
+
+            if (overheadEvent is not null)
+            {
+                _journal.Append(overheadEvent);
+                detectedEventCount++;
+            }
+        }
+
+        await Task.CompletedTask;
+        return new AdsbStartupResult(processedCount, detectedEventCount);
+    }
+}
+
 public sealed record AdsbStartupResult(int ProcessedCount, int DetectedEventCount);

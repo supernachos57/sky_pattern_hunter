@@ -23,9 +23,9 @@ public class AdsbStartupHostTests
             };
 
             var journal = new OverheadEventJournal(settings.DataDirectory);
-            var host = new AdsbStartupHost(settings, journal);
+            var pipeline = new AdsbProcessingPipeline(settings, journal);
 
-            var result = await host.ProcessPayloadsAsync(new[]
+            var result = await pipeline.ProcessAsync(new[]
             {
                 """
                 {"hex":"A1B2C3","lat":0,"lon":0,"alt_baro":32000,"track":270,"speed":450}
