@@ -11,12 +11,13 @@ import argparse
 import logging
 import socket
 import time
+from pathlib import Path
 from typing import Callable, Optional
 
 logger = logging.getLogger("readsb_tcp_client")
 
 
-def read_stream(host: str, port: int, on_message: Callable[[str], None], max_messages: Optional[int] = None):
+def read_stream(host: str, port: int, on_message: Callable[[str], None], max_messages: Optional[int] = None, output_path: Optional[Path] = None):
     backoff = 1.0
     received = 0
     while True:
@@ -30,6 +31,10 @@ def read_stream(host: str, port: int, on_message: Callable[[str], None], max_mes
                     if not line:
                         continue
                     on_message(line)
+                    if output_path is not None:
+                        output_path.parent.mkdir(parents=True, exist_ok=True)
+                        with output_path.open("a", encoding="utf-8") as handle:
+                            handle.write(line + "\n")
                     received += 1
                     if max_messages and received >= max_messages:
                         return
@@ -48,11 +53,12 @@ def main():
     parser.add_argument("--host", default="127.0.0.1", help="readsb host")
     parser.add_argument("--port", type=int, default=30002, help="readsb TCP port")
     parser.add_argument("--max", type=int, help="exit after N messages (for tests)")
+    parser.add_argument("--output", type=Path, help="append each received frame to this file")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    read_stream(args.host, args.port, _print_message, max_messages=args.max)
+    read_stream(args.host, args.port, _print_message, max_messages=args.max, output_path=args.output)
 
 
 if __name__ == "__main__":
