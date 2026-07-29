@@ -43,6 +43,26 @@ public static class ApplicationSettingsValidator
             errors.Add($"LogLevel '{settings.LogLevel}' is not supported.");
         }
 
+        if (settings.UserLatitude < -90 || settings.UserLatitude > 90)
+        {
+            errors.Add("UserLatitude must be between -90 and 90 degrees.");
+        }
+
+        if (settings.UserLongitude < -180 || settings.UserLongitude > 180)
+        {
+            errors.Add("UserLongitude must be between -180 and 180 degrees.");
+        }
+
+        if (settings.DetectionThresholdMiles <= 0)
+        {
+            errors.Add("DetectionThresholdMiles must be greater than 0.");
+        }
+
+        if (settings.ReadsbPort <= 0 || settings.ReadsbPort > 65535)
+        {
+            errors.Add("ReadsbPort must be between 1 and 65535.");
+        }
+
         return errors.Count == 0 ? ApplicationSettingsValidationResult.Success() : ApplicationSettingsValidationResult.Failure(errors);
     }
 }

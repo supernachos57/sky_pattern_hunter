@@ -20,6 +20,28 @@ public class ApplicationSettingsValidatorTests
     }
 
     [Fact]
+    public void Validate_ReturnsErrors_WhenGeographicAndNetworkValuesAreInvalid()
+    {
+        var settings = new ApplicationSettings
+        {
+            LogFilePath = "logs/sky-pattern-hunter.log",
+            LogLevel = "Information",
+            UserLatitude = 100,
+            UserLongitude = -181,
+            DetectionThresholdMiles = 0,
+            ReadsbPort = 70000
+        };
+
+        var result = ApplicationSettingsValidator.Validate(settings);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, error => error.Contains("UserLatitude", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.Errors, error => error.Contains("UserLongitude", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.Errors, error => error.Contains("DetectionThresholdMiles", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.Errors, error => error.Contains("ReadsbPort", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void Validate_ReturnsErrors_WhenSettingsAreInvalid()
     {
         var settings = new ApplicationSettings
