@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Text.Json;
 using SkyPatternHunter.Application.Detection;
 using SkyPatternHunter.Infrastructure.AdsB;
 using SkyPatternHunter.Infrastructure.Configuration;
@@ -34,8 +35,29 @@ public sealed class AdsbStartupHost
     public async Task<AdsbStartupResult> RunAsync(CancellationToken cancellationToken = default)
     {
         var client = new AdsbClient(_settings.ReadsbHost, _settings.ReadsbPort);
-        var messages = await client.ReadMessagesAsync(cancellationToken);
-        return await ProcessPayloadsAsync(messages, cancellationToken);
+        var processedCount = 0;
+        var detectedEventCount = 0;
+
+        try
+        {
+            await foreach (var payload in client.ReadMessagesAsync(cancellationToken))
+            {
+                if (TryProcessPayload(payload, DateTimeOffset.UtcNow, out var eventDetected))
+                {
+                    processedCount++;
+
+                    if (eventDetected)
+                    {
+                        detectedEventCount++;
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+
+        return new AdsbStartupResult(processedCount, detectedEventCount);
     }
 
     public async Task<AdsbStartupResult> ProcessPayloadsAsync(IEnumerable<string> payloads, CancellationToken cancellationToken = default)
@@ -54,25 +76,52 @@ public sealed class AdsbStartupHost
                 continue;
             }
 
+            if (TryProcessPayload(payload, DateTimeOffset.UtcNow, out var eventDetected))
+            {
+                processedCount++;
+
+                if (eventDetected)
+                {
+                    detectedEventCount++;
+                }
+            }
+        }
+
+        await Task.CompletedTask;
+        return new AdsbStartupResult(processedCount, detectedEventCount);
+    }
+
+    private bool TryProcessPayload(string payload, DateTimeOffset observedAt, out bool eventDetected)
+    {
+        eventDetected = false;
+
+        try
+        {
             var aircraft = _parser.Parse(payload);
-            processedCount++;
 
             var overheadEvent = _detector.Detect(
                 aircraft,
                 _settings.UserLatitude,
                 _settings.UserLongitude,
                 _settings.DetectionThresholdMiles,
-                DateTimeOffset.UtcNow);
+                observedAt);
 
             if (overheadEvent is not null)
             {
                 _journal.Append(overheadEvent);
-                detectedEventCount++;
+                eventDetected = true;
             }
-        }
 
-        await Task.CompletedTask;
-        return new AdsbStartupResult(processedCount, detectedEventCount);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 }
 
@@ -102,25 +151,52 @@ public sealed class AdsbProcessingPipeline
                 continue;
             }
 
+            if (TryProcessPayload(payload, DateTimeOffset.UtcNow, out var eventDetected))
+            {
+                processedCount++;
+
+                if (eventDetected)
+                {
+                    detectedEventCount++;
+                }
+            }
+        }
+
+        await Task.CompletedTask;
+        return new AdsbStartupResult(processedCount, detectedEventCount);
+    }
+
+    private bool TryProcessPayload(string payload, DateTimeOffset observedAt, out bool eventDetected)
+    {
+        eventDetected = false;
+
+        try
+        {
             var aircraft = _parser.Parse(payload);
-            processedCount++;
 
             var overheadEvent = _detector.Detect(
                 aircraft,
                 _settings.UserLatitude,
                 _settings.UserLongitude,
                 _settings.DetectionThresholdMiles,
-                DateTimeOffset.UtcNow);
+                observedAt);
 
             if (overheadEvent is not null)
             {
                 _journal.Append(overheadEvent);
-                detectedEventCount++;
+                eventDetected = true;
             }
-        }
 
-        await Task.CompletedTask;
-        return new AdsbStartupResult(processedCount, detectedEventCount);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 }
 

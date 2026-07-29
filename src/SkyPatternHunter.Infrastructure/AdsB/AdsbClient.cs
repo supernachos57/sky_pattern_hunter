@@ -1,5 +1,7 @@
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading.Channels;
 
 namespace SkyPatternHunter.Infrastructure.AdsB;
 
@@ -14,26 +16,81 @@ public sealed class AdsbClient
         _port = port;
     }
 
-    public async Task<IReadOnlyList<string>> ReadMessagesAsync(CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<string> ReadMessagesAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        using var client = new TcpClient();
-        await client.ConnectAsync(_host, _port, cancellationToken);
-
-        using var stream = client.GetStream();
-        using var reader = new StreamReader(stream, Encoding.UTF8);
-
-        var lines = new List<string>();
-        while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
+        var channel = Channel.CreateUnbounded<string>(new UnboundedChannelOptions
         {
-            var line = await reader.ReadLineAsync(cancellationToken);
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                continue;
-            }
+            SingleReader = true,
+            SingleWriter = true
+        });
 
-            lines.Add(line);
+        var pumpTask = PumpMessagesAsync(channel.Writer, cancellationToken);
+
+        await foreach (var message in channel.Reader.ReadAllAsync(cancellationToken))
+        {
+            yield return message;
         }
 
-        return lines;
+        await pumpTask;
+    }
+
+    private async Task PumpMessagesAsync(ChannelWriter<string> writer, CancellationToken cancellationToken)
+    {
+        var initialBackoff = TimeSpan.FromMilliseconds(250);
+        var maximumBackoff = TimeSpan.FromSeconds(5);
+        var currentBackoff = initialBackoff;
+
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    using var client = new TcpClient();
+                    await client.ConnectAsync(_host, _port, cancellationToken);
+
+                    using var stream = client.GetStream();
+                    using var reader = new StreamReader(stream, Encoding.UTF8);
+
+                    currentBackoff = initialBackoff;
+
+                    while (!cancellationToken.IsCancellationRequested)
+                    {
+                        var line = await reader.ReadLineAsync(cancellationToken);
+                        if (line is null)
+                        {
+                            break;
+                        }
+
+                        if (string.IsNullOrWhiteSpace(line))
+                        {
+                            continue;
+                        }
+
+                        await writer.WriteAsync(line, cancellationToken);
+                    }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex) when (ex is IOException or SocketException or ObjectDisposedException)
+                {
+                }
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+
+                await Task.Delay(currentBackoff, cancellationToken);
+                currentBackoff = TimeSpan.FromMilliseconds(
+                    Math.Min(currentBackoff.TotalMilliseconds * 2, maximumBackoff.TotalMilliseconds));
+            }
+        }
+        finally
+        {
+            writer.TryComplete();
+        }
     }
 }
