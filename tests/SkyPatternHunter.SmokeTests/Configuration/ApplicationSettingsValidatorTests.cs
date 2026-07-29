@@ -10,7 +10,11 @@ public class ApplicationSettingsValidatorTests
         var settings = new ApplicationSettings
         {
             LogFilePath = "logs/sky-pattern-hunter.log",
-            LogLevel = "Information"
+            LogLevel = "Information",
+            ReadsbHost = "127.0.0.1",
+            ReadsbPort = 30002,
+            DetectionThresholdMiles = 10,
+            DataDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"))
         };
 
         var result = ApplicationSettingsValidator.Validate(settings);
@@ -47,7 +51,10 @@ public class ApplicationSettingsValidatorTests
         var settings = new ApplicationSettings
         {
             LogFilePath = "",
-            LogLevel = "Verbose"
+            LogLevel = "Verbose",
+            ReadsbHost = "",
+            ReadsbPort = 0,
+            DataDirectory = ""
         };
 
         var result = ApplicationSettingsValidator.Validate(settings);
@@ -55,5 +62,8 @@ public class ApplicationSettingsValidatorTests
         Assert.False(result.IsValid);
         Assert.Contains(result.Errors, error => error.Contains("LogFilePath", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(result.Errors, error => error.Contains("LogLevel", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.Errors, error => error.Contains("ReadsbHost", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.Errors, error => error.Contains("ReadsbPort", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.Errors, error => error.Contains("DataDirectory", StringComparison.OrdinalIgnoreCase));
     }
 }
