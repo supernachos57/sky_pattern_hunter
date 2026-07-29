@@ -2,8 +2,10 @@ import socket
 import threading
 import time
 import json
+import tempfile
+from pathlib import Path
 
-from scripts.readsb_tcp_client import read_json_stream
+from scripts.readsb_tcp_client import read_stream
 
 
 def _start_test_server(bind_host, bind_port, messages, delay=0.01):
@@ -23,7 +25,7 @@ def _start_test_server(bind_host, bind_port, messages, delay=0.01):
     return t
 
 
-def test_read_json_stream_local():
+def test_read_stream_local():
     host = "127.0.0.1"
     port = 30011
     messages = [
@@ -36,11 +38,15 @@ def test_read_json_stream_local():
     def on_message(obj):
         received.append(obj)
 
-    srv_thread = _start_test_server(host, port, messages)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        output_path = Path(temp_dir) / "frames.log"
+        srv_thread = _start_test_server(host, port, messages)
 
-    # allow server to start
-    time.sleep(0.05)
-    read_json_stream(host, port, on_message, max_messages=len(messages))
+        # allow server to start
+        time.sleep(0.05)
+        read_stream(host, port, on_message, max_messages=len(messages), output_path=output_path)
 
-    assert len(received) == len(messages)
-    assert received[0]["hex"] == "A1B2C3"
+        assert len(received) == len(messages)
+        assert received[0]["hex"] == "A1B2C3"
+        assert output_path.exists()
+        assert output_path.read_text(encoding="utf-8").splitlines()[0] == json.dumps(messages[0])
