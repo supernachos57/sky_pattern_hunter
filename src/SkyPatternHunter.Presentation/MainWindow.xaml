@@ -75,14 +75,14 @@
                     <TextBlock Text="Readsb host" Foreground="{StaticResource MutedBrush}" />
                     <TextBox Text="127.0.0.1" Margin="0,6,0,14" Padding="10" />
                     <TextBlock Text="Readsb port" Foreground="{StaticResource MutedBrush}" />
-                    <TextBox Text="30001" Margin="0,6,0,14" Padding="10" />
+                            <TextBox Text="30002" Margin="0,6,0,14" Padding="10" />
                     <TextBlock Text="Notification prefix" Foreground="{StaticResource MutedBrush}" />
                     <TextBox Text="Overhead alert" Margin="0,6,0,14" Padding="10" />
                     <CheckBox Content="Enable Discord notifications" IsChecked="True" />
                 </StackPanel>
             </TabItem>
             <TabItem Header="Log">
-                <TextBox Text="Ready. The shell is wired to the current event journal." IsReadOnly="True" Margin="0,12,0,0" Padding="12" Background="#0B1220" Foreground="{StaticResource AccentBrush}" BorderThickness="0" />
+                <TextBox Text="{Binding RuntimeStatusMessage, Mode=OneWay}" IsReadOnly="True" Margin="0,12,0,0" Padding="12" Background="#0B1220" Foreground="{StaticResource AccentBrush}" BorderThickness="0" TextWrapping="Wrap" />
             </TabItem>
         </TabControl>
     </Grid>

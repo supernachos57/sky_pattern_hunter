@@ -1,55 +1,156 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
 using System.IO;
-using SkyPatternHunter.Domain.Models;
+using System.Runtime.CompilerServices;
+using System.Windows.Threading;
+using SkyPatternHunter.Infrastructure.Configuration;
 using SkyPatternHunter.Infrastructure.Events;
+using SkyPatternHunter.Infrastructure.Logging;
 
 namespace SkyPatternHunter.Presentation;
 
-public partial class MainWindow
+public partial class MainWindow : INotifyPropertyChanged
 {
+    private readonly LiveEventDashboard _dashboard;
+    private readonly DispatcherTimer _refreshTimer;
+    private readonly CancellationTokenSource _runtimeCancellationTokenSource = new();
+    private readonly FileLogger _logger;
+    private Task? _runtimeTask;
+    private bool _runtimeStarted;
+
     public ObservableCollection<RecentEventViewModel> Events { get; } = new();
 
-    public int EventCount { get; private set; }
+    private int _eventCount;
+    public int EventCount
+    {
+        get => _eventCount;
+        private set => SetProperty(ref _eventCount, value);
+    }
 
-    public string LatestAircraftHex { get; private set; } = "None";
+    private string _latestAircraftHex = "None";
+    public string LatestAircraftHex
+    {
+        get => _latestAircraftHex;
+        private set => SetProperty(ref _latestAircraftHex, value);
+    }
 
-    public string LatestObservedAtText { get; private set; } = "No events yet";
+    private string _latestObservedAtText = "No events yet";
+    public string LatestObservedAtText
+    {
+        get => _latestObservedAtText;
+        private set => SetProperty(ref _latestObservedAtText, value);
+    }
+
+    private string _runtimeStatusMessage = "Ready. Waiting for live feed on port 30002.";
+    public string RuntimeStatusMessage
+    {
+        get => _runtimeStatusMessage;
+        private set => SetProperty(ref _runtimeStatusMessage, value);
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     public MainWindow()
     {
+        var settings = new JsonConfigurationService().GetSettings();
+        settings.DataDirectory ??= Path.Combine(AppContext.BaseDirectory, "data");
+
+        var journal = new OverheadEventJournal(settings.DataDirectory);
+        _dashboard = new LiveEventDashboard(journal);
+        _logger = new FileLogger(settings.LogFilePath);
+
         InitializeComponent();
-        LoadEvents();
         DataContext = this;
+
+        RefreshFromJournal();
+
+        _refreshTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _refreshTimer.Tick += (_, _) => RefreshFromJournal();
+        _refreshTimer.Start();
+
+        Loaded += OnLoaded;
+        Closed += OnClosed;
     }
 
-    private void LoadEvents()
+    private void RefreshFromJournal()
     {
-        var journal = new OverheadEventJournal(Path.Combine(AppContext.BaseDirectory, "data"));
-        var events = journal.ReadAll();
-        var latestEvent = events.LastOrDefault();
+        var snapshot = _dashboard.Refresh();
 
         Events.Clear();
-        foreach (var overheadEvent in events.OrderByDescending(item => item.ObservedAt).Take(25))
+        foreach (var eventViewModel in snapshot.Events)
         {
-            Events.Add(RecentEventViewModel.FromEvent(overheadEvent));
+            Events.Add(eventViewModel);
         }
 
-        EventCount = events.Count;
-        LatestAircraftHex = latestEvent?.Aircraft.Hex ?? "None";
-        LatestObservedAtText = latestEvent?.ObservedAt.ToString("O", CultureInfo.InvariantCulture) ?? "No events yet";
+        EventCount = snapshot.EventCount;
+        LatestAircraftHex = snapshot.LatestAircraftHex;
+        LatestObservedAtText = snapshot.LatestObservedAtText;
     }
-}
 
-public sealed record RecentEventViewModel(string AircraftHex, string? Flight, string ObservedAtText, string AltitudeText, string SpeedText)
-{
-    public static RecentEventViewModel FromEvent(OverheadEvent overheadEvent)
+    private void OnLoaded(object sender, EventArgs e)
     {
-        return new RecentEventViewModel(
-            overheadEvent.Aircraft.Hex,
-            overheadEvent.Aircraft.Flight,
-            overheadEvent.ObservedAt.ToString("O", CultureInfo.InvariantCulture),
-            $"{overheadEvent.Aircraft.Altitude} ft",
-            $"{overheadEvent.Aircraft.Speed} kt");
+        if (_runtimeStarted)
+        {
+            return;
+        }
+
+        _runtimeStarted = true;
+        _runtimeTask = RunRuntimeAsync(_runtimeCancellationTokenSource.Token);
+    }
+
+    private async Task RunRuntimeAsync(CancellationToken cancellationToken)
+    {
+        RuntimeStatusMessage = "Live feed runtime starting...";
+
+        try
+        {
+            var host = AdsbStartupHost.CreateFromConfiguration();
+            RuntimeStatusMessage = "Live feed connected. Listening for events on port 30002.";
+            await host.RunAsync(cancellationToken);
+            RuntimeStatusMessage = "Live feed runtime stopped.";
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            RuntimeStatusMessage = "Live feed runtime canceled.";
+        }
+        catch (Exception ex)
+        {
+            _logger.Error($"UI runtime failure: {ex.Message}");
+            RuntimeStatusMessage = $"Runtime error: {ex.Message}";
+        }
+    }
+
+    private async void OnClosed(object? sender, EventArgs e)
+    {
+        _refreshTimer.Stop();
+        _runtimeCancellationTokenSource.Cancel();
+
+        if (_runtimeTask is not null)
+        {
+            try
+            {
+                await _runtimeTask;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        _runtimeCancellationTokenSource.Dispose();
+    }
+
+    private void SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value))
+        {
+            return;
+        }
+
+        field = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }
