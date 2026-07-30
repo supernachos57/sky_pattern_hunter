@@ -4,6 +4,7 @@ namespace SkyPatternHunter.Infrastructure.Logging;
 
 public sealed class FileLogger
 {
+    private static readonly object FileWriteSync = new();
     private readonly string _path;
 
     public FileLogger(string? path = null)
@@ -25,6 +26,9 @@ public sealed class FileLogger
     private void WriteLine(string level, string message)
     {
         var line = $"[{DateTimeOffset.UtcNow.ToString("o", CultureInfo.InvariantCulture)}] [{level}] {message}";
-        File.AppendAllText(_path, line + Environment.NewLine);
+        lock (FileWriteSync)
+        {
+            File.AppendAllText(_path, line + Environment.NewLine);
+        }
     }
 }

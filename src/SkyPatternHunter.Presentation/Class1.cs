@@ -179,10 +179,19 @@ public sealed class AdsbStartupHost
 
                 if (_notificationDispatcher is not null)
                 {
-                    var notificationResult = _notificationDispatcher.CreatePayload(overheadEvent, observedAt);
+                    var notificationResult = _notificationDispatcher.Dispatch(overheadEvent, observedAt);
                     if (notificationResult.Payload is not null)
                     {
                         _logger.Information($"Discord notification payload created recipient={notificationResult.Payload.RecipientUserId} aircraft={overheadEvent.Aircraft.Hex}.");
+
+                        if (notificationResult.Sent)
+                        {
+                            _logger.Information($"Discord DM sent recipient={notificationResult.Payload.RecipientUserId} aircraft={overheadEvent.Aircraft.Hex}.");
+                        }
+                        else if (!string.IsNullOrWhiteSpace(notificationResult.ErrorMessage))
+                        {
+                            _logger.Error($"Discord DM send skipped/failed aircraft={overheadEvent.Aircraft.Hex}: {notificationResult.ErrorMessage}");
+                        }
                     }
                     else if (notificationResult.SuppressedByCooldown)
                     {
@@ -295,10 +304,19 @@ public sealed class AdsbProcessingPipeline
 
                 if (_notificationDispatcher is not null)
                 {
-                    var notificationResult = _notificationDispatcher.CreatePayload(overheadEvent, observedAt);
+                    var notificationResult = _notificationDispatcher.Dispatch(overheadEvent, observedAt);
                     if (notificationResult.Payload is not null)
                     {
                         _logger.Information($"Discord notification payload created recipient={notificationResult.Payload.RecipientUserId} aircraft={overheadEvent.Aircraft.Hex}.");
+
+                        if (notificationResult.Sent)
+                        {
+                            _logger.Information($"Discord DM sent recipient={notificationResult.Payload.RecipientUserId} aircraft={overheadEvent.Aircraft.Hex}.");
+                        }
+                        else if (!string.IsNullOrWhiteSpace(notificationResult.ErrorMessage))
+                        {
+                            _logger.Error($"Discord DM send skipped/failed aircraft={overheadEvent.Aircraft.Hex}: {notificationResult.ErrorMessage}");
+                        }
                     }
                     else if (notificationResult.SuppressedByCooldown)
                     {
@@ -345,7 +363,14 @@ file static class NotificationDispatcherFactory
             Cooldown: TimeSpan.FromSeconds(settings.DiscordNotificationCooldownSeconds),
             MessagePrefix: settings.DiscordNotificationMessagePrefix);
 
-        return new DiscordNotificationDispatcher(settings.DiscordRecipientUserId, preferences);
+        var botToken = Environment.GetEnvironmentVariable("DISCORD_BOT_TOKEN");
+        IDiscordDmSender? sender = null;
+        if (!string.IsNullOrWhiteSpace(botToken))
+        {
+            sender = new DiscordApiDmSender(botToken);
+        }
+
+        return new DiscordNotificationDispatcher(settings.DiscordRecipientUserId, preferences, sender: sender);
     }
 }
 

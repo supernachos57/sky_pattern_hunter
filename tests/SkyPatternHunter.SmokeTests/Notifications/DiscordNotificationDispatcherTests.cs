@@ -64,9 +64,64 @@ public class DiscordNotificationDispatcherTests
         Assert.False(secondResult.SuppressedByCooldown);
     }
 
+    [Fact]
+    public void Dispatch_SendsPayload_WhenSenderIsConfigured()
+    {
+        var provider = new DiscordDmNotificationProvider();
+        var sender = new FakeDiscordDmSender(new DiscordDmSendResult(true));
+        var dispatcher = new DiscordNotificationDispatcher(
+            "1234567890",
+            new DiscordDmNotificationPreferences(true, TimeSpan.FromMinutes(10), "Sky Pattern Hunter"),
+            provider,
+            sender);
+
+        var overheadEvent = CreateEvent("A1B2C3", "2026-07-24T12:00:00+00:00");
+        var result = dispatcher.Dispatch(overheadEvent, DateTimeOffset.Parse("2026-07-24T12:00:01+00:00"));
+
+        Assert.NotNull(result.Payload);
+        Assert.True(result.Sent);
+        Assert.Null(result.ErrorMessage);
+        Assert.Single(sender.SentPayloads);
+    }
+
+    [Fact]
+    public void Dispatch_ReturnsError_WhenSenderIsMissing()
+    {
+        var provider = new DiscordDmNotificationProvider();
+        var dispatcher = new DiscordNotificationDispatcher(
+            "1234567890",
+            new DiscordDmNotificationPreferences(true, TimeSpan.FromMinutes(10), "Sky Pattern Hunter"),
+            provider);
+
+        var overheadEvent = CreateEvent("A1B2C3", "2026-07-24T12:00:00+00:00");
+        var result = dispatcher.Dispatch(overheadEvent, DateTimeOffset.Parse("2026-07-24T12:00:01+00:00"));
+
+        Assert.NotNull(result.Payload);
+        Assert.False(result.Sent);
+        Assert.Contains("DISCORD_BOT_TOKEN", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static OverheadEvent CreateEvent(string aircraftHex, string observedAt)
     {
         var aircraft = new Aircraft(aircraftHex, "DAL123", 28.1234, -81.2345, 32000, 270, 450, 1234);
         return new OverheadEvent(aircraft, DateTimeOffset.Parse(observedAt));
+    }
+
+    private sealed class FakeDiscordDmSender : IDiscordDmSender
+    {
+        private readonly DiscordDmSendResult _result;
+
+        public FakeDiscordDmSender(DiscordDmSendResult result)
+        {
+            _result = result;
+        }
+
+        public List<DiscordDmNotificationPayload> SentPayloads { get; } = new();
+
+        public DiscordDmSendResult Send(DiscordDmNotificationPayload payload)
+        {
+            SentPayloads.Add(payload);
+            return _result;
+        }
     }
 }
