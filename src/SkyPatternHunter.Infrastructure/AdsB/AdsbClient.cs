@@ -17,7 +17,7 @@ public sealed class AdsbClient
 
     public AdsbClient(
         string host = "127.0.0.1",
-        int port = 30001,
+        int port = 30002,
         Action? onConnectAttempt = null,
         Action? onConnected = null,
         Action<string>? onDisconnected = null,
