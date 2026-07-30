@@ -73,6 +73,16 @@ public static class ApplicationSettingsValidator
             errors.Add("DataDirectory must not be empty.");
         }
 
+        if (settings.DiscordNotificationCooldownSeconds < 0)
+        {
+            errors.Add("DiscordNotificationCooldownSeconds must be 0 or greater.");
+        }
+
+        if (settings.DiscordNotificationsEnabled && string.IsNullOrWhiteSpace(settings.DiscordRecipientUserId))
+        {
+            errors.Add("DiscordRecipientUserId must not be empty when Discord notifications are enabled.");
+        }
+
         return errors.Count == 0 ? ApplicationSettingsValidationResult.Success() : ApplicationSettingsValidationResult.Failure(errors);
     }
 }
