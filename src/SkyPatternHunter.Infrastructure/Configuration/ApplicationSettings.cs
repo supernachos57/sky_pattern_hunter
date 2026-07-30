@@ -10,9 +10,4 @@ public sealed class ApplicationSettings
     public double DetectionThresholdMiles { get; set; } = 10;
     public string ReadsbHost { get; set; } = "127.0.0.1";
     public int ReadsbPort { get; set; } = 30002;
-    public bool DiscordNotificationsEnabled { get; set; }
-    public string? DiscordRecipientUserId { get; set; }
-    public string? DiscordBotToken { get; set; }
-    public int DiscordNotificationCooldownSeconds { get; set; } = 300;
-    public string DiscordNotificationMessagePrefix { get; set; } = "Overhead alert";
 }

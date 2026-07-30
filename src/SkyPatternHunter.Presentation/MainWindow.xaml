@@ -75,7 +75,7 @@
                     <TextBlock Text="Readsb host" Foreground="{StaticResource MutedBrush}" />
                     <TextBox Text="127.0.0.1" Margin="0,6,0,14" Padding="10" />
                     <TextBlock Text="Readsb port" Foreground="{StaticResource MutedBrush}" />
-                    <TextBox Text="30002" Margin="0,6,0,14" Padding="10" />
+                    <TextBox Text="30001" Margin="0,6,0,14" Padding="10" />
                     <TextBlock Text="Notification prefix" Foreground="{StaticResource MutedBrush}" />
                     <TextBox Text="Overhead alert" Margin="0,6,0,14" Padding="10" />
                     <CheckBox Content="Enable Discord notifications" IsChecked="True" />
