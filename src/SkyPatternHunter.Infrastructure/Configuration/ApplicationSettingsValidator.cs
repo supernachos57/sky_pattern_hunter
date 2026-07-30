@@ -63,6 +63,16 @@ public static class ApplicationSettingsValidator
             errors.Add("ReadsbPort must be between 1 and 65535.");
         }
 
+        if (string.IsNullOrWhiteSpace(settings.ReadsbHost))
+        {
+            errors.Add("ReadsbHost must not be empty.");
+        }
+
+        if (string.IsNullOrWhiteSpace(settings.DataDirectory))
+        {
+            errors.Add("DataDirectory must not be empty.");
+        }
+
         return errors.Count == 0 ? ApplicationSettingsValidationResult.Success() : ApplicationSettingsValidationResult.Failure(errors);
     }
 }

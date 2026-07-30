@@ -4,6 +4,7 @@ using SkyPatternHunter.Application.Detection;
 using SkyPatternHunter.Infrastructure.AdsB;
 using SkyPatternHunter.Infrastructure.Configuration;
 using SkyPatternHunter.Infrastructure.Events;
+using SkyPatternHunter.Infrastructure.Logging;
 
 namespace SkyPatternHunter.Presentation;
 
@@ -25,11 +26,20 @@ public sealed class AdsbStartupHost
         var configurationService = new JsonConfigurationService(configPath);
         var settings = configurationService.GetSettings();
 
-        var dataDirectory = string.IsNullOrWhiteSpace(settings.DataDirectory)
-            ? Path.Combine(AppContext.BaseDirectory, "data")
-            : settings.DataDirectory;
+        if (settings.DataDirectory is null)
+        {
+            settings.DataDirectory = Path.Combine(AppContext.BaseDirectory, "data");
+        }
 
-        return new AdsbStartupHost(settings, new OverheadEventJournal(dataDirectory));
+        var validation = ApplicationSettingsValidator.Validate(settings);
+        if (!validation.IsValid)
+        {
+            var message = "Application startup configuration is invalid: " + string.Join(" ", validation.Errors);
+            new FileLogger().Error(message);
+            throw new InvalidOperationException(message);
+        }
+
+        return new AdsbStartupHost(settings, new OverheadEventJournal(settings.DataDirectory));
     }
 
     public async Task<AdsbStartupResult> RunAsync(CancellationToken cancellationToken = default)
@@ -201,3 +211,26 @@ public sealed class AdsbProcessingPipeline
 }
 
 public sealed record AdsbStartupResult(int ProcessedCount, int DetectedEventCount);
+
+public sealed record StartupValidationResult(bool IsValid, int ExitCode, string? ErrorMessage)
+{
+    public static StartupValidationResult Success() => new(true, 0, null);
+
+    public static StartupValidationResult Failure(string message) => new(false, 1, message);
+}
+
+public static class StartupConfigurationValidator
+{
+    public static StartupValidationResult ValidateAtStartup(string? configPath = null)
+    {
+        try
+        {
+            _ = AdsbStartupHost.CreateFromConfiguration(configPath);
+            return StartupValidationResult.Success();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StartupValidationResult.Failure(ex.Message);
+        }
+    }
+}
