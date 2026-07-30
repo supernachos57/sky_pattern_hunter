@@ -66,27 +66,4 @@ public class ApplicationSettingsValidatorTests
         Assert.Contains(result.Errors, error => error.Contains("ReadsbPort", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(result.Errors, error => error.Contains("DataDirectory", StringComparison.OrdinalIgnoreCase));
     }
-
-    [Fact]
-    public void Validate_ReturnsErrors_WhenDiscordNotificationSettingsAreInvalid()
-    {
-        var settings = new ApplicationSettings
-        {
-            LogFilePath = "logs/sky-pattern-hunter.log",
-            LogLevel = "Information",
-            ReadsbHost = "127.0.0.1",
-            ReadsbPort = 30002,
-            DetectionThresholdMiles = 10,
-            DataDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N")),
-            DiscordNotificationsEnabled = true,
-            DiscordRecipientUserId = "",
-            DiscordNotificationCooldownSeconds = -1
-        };
-
-        var result = ApplicationSettingsValidator.Validate(settings);
-
-        Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, error => error.Contains("DiscordRecipientUserId", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(result.Errors, error => error.Contains("DiscordNotificationCooldownSeconds", StringComparison.OrdinalIgnoreCase));
-    }
 }

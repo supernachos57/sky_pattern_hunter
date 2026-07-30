@@ -14,8 +14,4 @@
     <ProjectReference Include="..\SkyPatternHunter.Infrastructure\SkyPatternHunter.Infrastructure.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Include="..\..\appsettings.json" Link="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-
 </Project>
