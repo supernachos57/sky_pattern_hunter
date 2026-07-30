@@ -364,6 +364,11 @@ file static class NotificationDispatcherFactory
             MessagePrefix: settings.DiscordNotificationMessagePrefix);
 
         var botToken = Environment.GetEnvironmentVariable("DISCORD_BOT_TOKEN");
+        if (string.IsNullOrWhiteSpace(botToken))
+        {
+            botToken = settings.DiscordBotToken;
+        }
+
         IDiscordDmSender? sender = null;
         if (!string.IsNullOrWhiteSpace(botToken))
         {

@@ -12,6 +12,7 @@ public sealed class ApplicationSettings
     public int ReadsbPort { get; set; } = 30002;
     public bool DiscordNotificationsEnabled { get; set; }
     public string? DiscordRecipientUserId { get; set; }
+    public string? DiscordBotToken { get; set; }
     public int DiscordNotificationCooldownSeconds { get; set; } = 300;
     public string DiscordNotificationMessagePrefix { get; set; } = "Overhead alert";
 }
