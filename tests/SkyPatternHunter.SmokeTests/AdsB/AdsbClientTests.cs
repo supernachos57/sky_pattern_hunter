@@ -22,7 +22,18 @@ public class AdsbClientTests
         try
         {
             var serverTask = RunServerAsync(listener, firstMessage, secondMessage);
-            var client = new AdsbClient(IPAddress.Loopback.ToString(), endpoint.Port);
+            var connectAttemptCount = 0;
+            var connectedCount = 0;
+            var reconnectScheduledCount = 0;
+            var errorCount = 0;
+
+            var client = new AdsbClient(
+                IPAddress.Loopback.ToString(),
+                endpoint.Port,
+                onConnectAttempt: () => connectAttemptCount++,
+                onConnected: () => connectedCount++,
+                onError: _ => errorCount++,
+                onReconnectScheduled: _ => reconnectScheduledCount++);
             var receivedMessages = new List<string>();
 
             try
@@ -44,6 +55,10 @@ public class AdsbClientTests
             await serverTask;
 
             Assert.Equal(new[] { firstMessage, secondMessage }, receivedMessages);
+            Assert.True(connectAttemptCount >= 2);
+            Assert.True(connectedCount >= 2);
+            Assert.True(reconnectScheduledCount >= 1);
+            Assert.Equal(0, errorCount);
         }
         finally
         {

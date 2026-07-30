@@ -9,11 +9,28 @@ public sealed class AdsbClient
 {
     private readonly string _host;
     private readonly int _port;
+    private readonly Action? _onConnectAttempt;
+    private readonly Action? _onConnected;
+    private readonly Action<string>? _onDisconnected;
+    private readonly Action<Exception>? _onError;
+    private readonly Action<TimeSpan>? _onReconnectScheduled;
 
-    public AdsbClient(string host = "127.0.0.1", int port = 30001)
+    public AdsbClient(
+        string host = "127.0.0.1",
+        int port = 30001,
+        Action? onConnectAttempt = null,
+        Action? onConnected = null,
+        Action<string>? onDisconnected = null,
+        Action<Exception>? onError = null,
+        Action<TimeSpan>? onReconnectScheduled = null)
     {
         _host = host;
         _port = port;
+        _onConnectAttempt = onConnectAttempt;
+        _onConnected = onConnected;
+        _onDisconnected = onDisconnected;
+        _onError = onError;
+        _onReconnectScheduled = onReconnectScheduled;
     }
 
     public async IAsyncEnumerable<string> ReadMessagesAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -47,7 +64,9 @@ public sealed class AdsbClient
                 try
                 {
                     using var client = new TcpClient();
+                    _onConnectAttempt?.Invoke();
                     await client.ConnectAsync(_host, _port, cancellationToken);
+                    _onConnected?.Invoke();
 
                     using var stream = client.GetStream();
                     using var reader = new StreamReader(stream, Encoding.UTF8);
@@ -59,6 +78,7 @@ public sealed class AdsbClient
                         var line = await reader.ReadLineAsync(cancellationToken);
                         if (line is null)
                         {
+                            _onDisconnected?.Invoke("Remote feed closed the connection.");
                             break;
                         }
 
@@ -76,6 +96,7 @@ public sealed class AdsbClient
                 }
                 catch (Exception ex) when (ex is IOException or SocketException or ObjectDisposedException)
                 {
+                    _onError?.Invoke(ex);
                 }
 
                 if (cancellationToken.IsCancellationRequested)
@@ -83,6 +104,7 @@ public sealed class AdsbClient
                     break;
                 }
 
+                _onReconnectScheduled?.Invoke(currentBackoff);
                 await Task.Delay(currentBackoff, cancellationToken);
                 currentBackoff = TimeSpan.FromMilliseconds(
                     Math.Min(currentBackoff.TotalMilliseconds * 2, maximumBackoff.TotalMilliseconds));
