@@ -5,6 +5,7 @@ using SkyPatternHunter.Infrastructure.AdsB;
 using SkyPatternHunter.Infrastructure.Configuration;
 using SkyPatternHunter.Infrastructure.Events;
 using SkyPatternHunter.Infrastructure.Logging;
+using SkyPatternHunter.Infrastructure.Monitoring;
 
 namespace SkyPatternHunter.Presentation;
 
@@ -12,13 +13,22 @@ public sealed class AdsbStartupHost
 {
     private readonly ApplicationSettings _settings;
     private readonly OverheadEventJournal _journal;
+    private readonly FileLogger _logger;
+    private readonly RuntimeIngestionMonitor _monitor;
     private readonly AdsbParser _parser = new();
     private readonly IOverheadEventDetector _detector = new OverheadEventDetector();
 
     public AdsbStartupHost(ApplicationSettings settings, OverheadEventJournal journal)
+        : this(settings, journal, new FileLogger(settings.LogFilePath), new RuntimeIngestionMonitor())
+    {
+    }
+
+    public AdsbStartupHost(ApplicationSettings settings, OverheadEventJournal journal, FileLogger logger, RuntimeIngestionMonitor monitor)
     {
         _settings = settings;
         _journal = journal;
+        _logger = logger;
+        _monitor = monitor;
     }
 
     public static AdsbStartupHost CreateFromConfiguration(string? configPath = null)
@@ -44,7 +54,36 @@ public sealed class AdsbStartupHost
 
     public async Task<AdsbStartupResult> RunAsync(CancellationToken cancellationToken = default)
     {
-        var client = new AdsbClient(_settings.ReadsbHost, _settings.ReadsbPort);
+        _logger.Information($"ADS-B runtime started host={_settings.ReadsbHost} port={_settings.ReadsbPort}.");
+
+        var client = new AdsbClient(
+            _settings.ReadsbHost,
+            _settings.ReadsbPort,
+            onConnectAttempt: () =>
+            {
+                _monitor.RecordConnectAttempt(_settings.ReadsbHost, _settings.ReadsbPort);
+                _logger.Information($"ADS-B connect attempt host={_settings.ReadsbHost} port={_settings.ReadsbPort}.");
+            },
+            onConnected: () =>
+            {
+                _monitor.RecordConnected(_settings.ReadsbHost, _settings.ReadsbPort);
+                _logger.Information($"ADS-B connected host={_settings.ReadsbHost} port={_settings.ReadsbPort}.");
+            },
+            onDisconnected: reason =>
+            {
+                _logger.Information($"ADS-B disconnected: {reason}");
+            },
+            onError: ex =>
+            {
+                _monitor.RecordClientError(ex.Message);
+                _logger.Error($"ADS-B client error: {ex.Message}");
+            },
+            onReconnectScheduled: delay =>
+            {
+                _monitor.RecordReconnectScheduled(delay);
+                _logger.Information($"ADS-B reconnect scheduled in {delay.TotalMilliseconds:0} ms.");
+            });
+
         var processedCount = 0;
         var detectedEventCount = 0;
 
@@ -67,12 +106,16 @@ public sealed class AdsbStartupHost
         {
         }
 
+        _monitor.RecordRunStopped(processedCount, detectedEventCount);
+        _logger.Information($"ADS-B runtime stopped processed={processedCount} detected={detectedEventCount}.");
         return new AdsbStartupResult(processedCount, detectedEventCount);
     }
 
     public async Task<AdsbStartupResult> ProcessPayloadsAsync(IEnumerable<string> payloads, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(payloads);
+
+        _logger.Information("Batch payload processing started.");
 
         var processedCount = 0;
         var detectedEventCount = 0;
@@ -98,8 +141,12 @@ public sealed class AdsbStartupHost
         }
 
         await Task.CompletedTask;
+        _monitor.RecordRunStopped(processedCount, detectedEventCount);
+        _logger.Information($"Batch payload processing completed processed={processedCount} detected={detectedEventCount}.");
         return new AdsbStartupResult(processedCount, detectedEventCount);
     }
+
+    public RuntimeIngestionSnapshot GetMonitoringSnapshot() => _monitor.GetSnapshot();
 
     private bool TryProcessPayload(string payload, DateTimeOffset observedAt, out bool eventDetected)
     {
@@ -108,6 +155,8 @@ public sealed class AdsbStartupHost
         try
         {
             var aircraft = _parser.Parse(payload);
+            _monitor.RecordPayloadParsed(aircraft.Hex);
+            _logger.Information($"Payload parsed hex={aircraft.Hex}.");
 
             var overheadEvent = _detector.Detect(
                 aircraft,
@@ -118,18 +167,26 @@ public sealed class AdsbStartupHost
 
             if (overheadEvent is not null)
             {
+                _monitor.RecordEventDetected(overheadEvent.Aircraft.Hex);
+                _logger.Information($"Overhead event detected hex={overheadEvent.Aircraft.Hex}.");
                 _journal.Append(overheadEvent);
+                _monitor.RecordEventPersisted(overheadEvent.Aircraft.Hex);
+                _logger.Information($"Overhead event persisted hex={overheadEvent.Aircraft.Hex}.");
                 eventDetected = true;
             }
 
             return true;
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
+            _monitor.RecordPayloadParseFailure(ex.Message);
+            _logger.Error($"Payload parse failure: {ex.Message}");
             return false;
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException ex)
         {
+            _monitor.RecordPayloadParseFailure(ex.Message);
+            _logger.Error($"Payload parse failure: {ex.Message}");
             return false;
         }
     }
@@ -141,15 +198,26 @@ public sealed class AdsbProcessingPipeline
     private readonly IOverheadEventDetector _detector = new OverheadEventDetector();
     private readonly OverheadEventJournal _journal;
     private readonly ApplicationSettings _settings;
+    private readonly FileLogger _logger;
+    private readonly RuntimeIngestionMonitor _monitor;
 
     public AdsbProcessingPipeline(ApplicationSettings settings, OverheadEventJournal journal)
+        : this(settings, journal, new FileLogger(settings.LogFilePath), new RuntimeIngestionMonitor())
+    {
+    }
+
+    public AdsbProcessingPipeline(ApplicationSettings settings, OverheadEventJournal journal, FileLogger logger, RuntimeIngestionMonitor monitor)
     {
         _settings = settings;
         _journal = journal;
+        _logger = logger;
+        _monitor = monitor;
     }
 
     public async Task<AdsbStartupResult> ProcessAsync(IEnumerable<string> payloads, CancellationToken cancellationToken = default)
     {
+        _logger.Information("Processing pipeline started.");
+
         var processedCount = 0;
         var detectedEventCount = 0;
 
@@ -173,8 +241,12 @@ public sealed class AdsbProcessingPipeline
         }
 
         await Task.CompletedTask;
+        _monitor.RecordRunStopped(processedCount, detectedEventCount);
+        _logger.Information($"Processing pipeline stopped processed={processedCount} detected={detectedEventCount}.");
         return new AdsbStartupResult(processedCount, detectedEventCount);
     }
+
+    public RuntimeIngestionSnapshot GetMonitoringSnapshot() => _monitor.GetSnapshot();
 
     private bool TryProcessPayload(string payload, DateTimeOffset observedAt, out bool eventDetected)
     {
@@ -183,6 +255,8 @@ public sealed class AdsbProcessingPipeline
         try
         {
             var aircraft = _parser.Parse(payload);
+            _monitor.RecordPayloadParsed(aircraft.Hex);
+            _logger.Information($"Payload parsed hex={aircraft.Hex}.");
 
             var overheadEvent = _detector.Detect(
                 aircraft,
@@ -193,18 +267,26 @@ public sealed class AdsbProcessingPipeline
 
             if (overheadEvent is not null)
             {
+                _monitor.RecordEventDetected(overheadEvent.Aircraft.Hex);
+                _logger.Information($"Overhead event detected hex={overheadEvent.Aircraft.Hex}.");
                 _journal.Append(overheadEvent);
+                _monitor.RecordEventPersisted(overheadEvent.Aircraft.Hex);
+                _logger.Information($"Overhead event persisted hex={overheadEvent.Aircraft.Hex}.");
                 eventDetected = true;
             }
 
             return true;
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
+            _monitor.RecordPayloadParseFailure(ex.Message);
+            _logger.Error($"Payload parse failure: {ex.Message}");
             return false;
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException ex)
         {
+            _monitor.RecordPayloadParseFailure(ex.Message);
+            _logger.Error($"Payload parse failure: {ex.Message}");
             return false;
         }
     }
