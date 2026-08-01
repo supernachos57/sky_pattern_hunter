@@ -33,7 +33,9 @@ public class ApplicationSettingsValidatorTests
             UserLatitude = 100,
             UserLongitude = -181,
             DetectionThresholdMiles = 0,
-            ReadsbPort = 70000
+            DashboardStaleAfterSeconds = 0,
+            ReadsbPort = 70000,
+            ReadsbJsonUrl = "not a URL"
         };
 
         var result = ApplicationSettingsValidator.Validate(settings);
@@ -42,7 +44,9 @@ public class ApplicationSettingsValidatorTests
         Assert.Contains(result.Errors, error => error.Contains("UserLatitude", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(result.Errors, error => error.Contains("UserLongitude", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(result.Errors, error => error.Contains("DetectionThresholdMiles", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.Errors, error => error.Contains("DashboardStaleAfterSeconds", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(result.Errors, error => error.Contains("ReadsbPort", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.Errors, error => error.Contains("ReadsbJsonUrl", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

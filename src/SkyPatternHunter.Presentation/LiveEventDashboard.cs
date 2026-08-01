@@ -4,37 +4,55 @@ using SkyPatternHunter.Infrastructure.Events;
 namespace SkyPatternHunter.Presentation;
 
 public sealed record LiveEventDashboardSnapshot(
-    int EventCount,
+    int ActiveAircraftCount,
     string LatestAircraftHex,
     string LatestObservedAtText,
-    IReadOnlyList<RecentEventViewModel> Events);
+    IReadOnlyList<RecentEventViewModel> ActiveEvents,
+    IReadOnlyList<RecentEventViewModel> TodayEvents);
 
 public sealed class LiveEventDashboard
 {
     private readonly OverheadEventJournal _journal;
-    private readonly int _maxEvents;
+    private readonly TimeSpan _staleAfter;
+    private readonly Func<DateTimeOffset> _clock;
 
-    public LiveEventDashboard(OverheadEventJournal journal, int maxEvents = 25)
+    public LiveEventDashboard(OverheadEventJournal journal, TimeSpan? staleAfter = null, Func<DateTimeOffset>? clock = null)
     {
         _journal = journal;
-        _maxEvents = maxEvents;
+        _staleAfter = staleAfter ?? TimeSpan.FromSeconds(60);
+        _clock = clock ?? (() => DateTimeOffset.UtcNow);
     }
 
     public LiveEventDashboardSnapshot Refresh()
     {
-        var events = _journal.ReadAll();
-        var latestEvent = events.LastOrDefault();
-
-        var recent = events
-            .OrderByDescending(item => item.ObservedAt)
-            .Take(_maxEvents)
-            .Select(RecentEventViewModel.FromEvent)
+        var now = _clock();
+        var today = now.ToLocalTime().Date;
+        var latestByAircraft = _journal.ReadAll()
+            .GroupBy(item => item.Aircraft.Hex, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.MaxBy(item => item.ObservedAt)!)
             .ToArray();
+        var todayEvents = latestByAircraft
+            .Where(item => item.ObservedAt.ToLocalTime().Date == today)
+            .ToArray();
+        var activeAircraft = todayEvents
+            .Where(item => now - item.ObservedAt <= _staleAfter)
+            .OrderByDescending(item => item.ObservedAt)
+            .Select(item => RecentEventViewModel.FromEvent(item, isStale: false))
+            .ToArray();
+        var staleAircraft = todayEvents
+            .Where(item => now - item.ObservedAt > _staleAfter)
+            .OrderByDescending(item => item.ObservedAt)
+            .Select(item => RecentEventViewModel.FromEvent(item, isStale: true))
+            .ToArray();
+        var latestEvent = todayEvents.MaxBy(item => item.ObservedAt);
 
         return new LiveEventDashboardSnapshot(
-            events.Count,
+            activeAircraft.Length,
             latestEvent?.Aircraft.Hex ?? "None",
-            latestEvent?.ObservedAt.ToString("O", CultureInfo.InvariantCulture) ?? "No events yet",
-            recent);
+            latestEvent is null
+                ? "No events yet"
+                : RecentEventViewModel.FromEvent(latestEvent, isStale: false).ObservedAtText,
+            activeAircraft,
+            activeAircraft.Concat(staleAircraft).ToArray());
     }
 }

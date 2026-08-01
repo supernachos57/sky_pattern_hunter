@@ -54,6 +54,46 @@ public class AdsbParserTests
     }
 
     [Fact]
+    public void Parse_ReadsbJsonPayload_MapsGroundSpeedAndStringFields()
+    {
+        var parser = new AdsbParser();
+        const string json = """
+        {
+          "hex": "a1b2c3",
+          "flight": "DAL123 ",
+          "alt_baro": "ground",
+          "lat": 28.1234,
+          "lon": -81.2345,
+          "track": 270.4,
+          "gs": 450.6,
+          "squawk": "1234"
+        }
+        """;
+
+        Aircraft aircraft = parser.Parse(json);
+
+        Assert.Equal("a1b2c3", aircraft.Hex);
+        Assert.Equal("DAL123 ", aircraft.Flight);
+        Assert.Equal(0, aircraft.Altitude);
+        Assert.Equal(270, aircraft.Track);
+        Assert.Equal(451, aircraft.Speed);
+        Assert.Equal(1234, aircraft.Squawk);
+    }
+
+    [Fact]
+    public void Parse_ReadsbJsonPayload_UsesTrueAirSpeedWhenGroundSpeedIsUnavailable()
+    {
+        var parser = new AdsbParser();
+        const string json = """
+        { "hex": "A1B2C3", "tas": 275.6 }
+        """;
+
+        Aircraft aircraft = parser.Parse(json);
+
+        Assert.Equal(276, aircraft.Speed);
+    }
+
+    [Fact]
     public void Parse_ThrowsForInvalidJson()
     {
         var parser = new AdsbParser();
