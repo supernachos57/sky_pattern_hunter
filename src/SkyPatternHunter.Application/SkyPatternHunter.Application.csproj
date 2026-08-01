@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SkyPatternHunter.Domain\SkyPatternHunter.Domain.csproj" />
+    <ProjectReference Include="..\SkyPatternHunter.Infrastructure\SkyPatternHunter.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
