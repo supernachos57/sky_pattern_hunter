@@ -36,7 +36,7 @@
                 <UniformGrid Columns="3" Margin="0,16,0,0">
                     <Border Background="#0B1220" CornerRadius="12" Margin="0,0,12,0" Padding="16">
                         <StackPanel>
-                            <TextBlock Text="Events captured" Foreground="{StaticResource MutedBrush}" />
+                            <TextBlock Text="Aircraft tracked" Foreground="{StaticResource MutedBrush}" />
                             <TextBlock Text="{Binding EventCount}" FontSize="28" FontWeight="SemiBold" Margin="0,8,0,0" />
                         </StackPanel>
                     </Border>
@@ -57,25 +57,54 @@
         </Border>
 
         <TabControl Grid.Row="4" Background="{StaticResource CardBackground}" BorderThickness="0" Padding="16">
-            <TabItem Header="Recent Events">
-                <ListView ItemsSource="{Binding Events}" Margin="0,12,0,0">
+            <TabItem Header="Active">
+                <ListView ItemsSource="{Binding ActiveEvents}" Margin="0,12,0,0">
                     <ListView.View>
                         <GridView>
-                            <GridViewColumn Header="Observed" DisplayMemberBinding="{Binding ObservedAtText}" Width="220" />
+                            <GridViewColumn Header="Observed" DisplayMemberBinding="{Binding ObservedAtText}" Width="185" />
+                            <GridViewColumn Header="UTC offset" DisplayMemberBinding="{Binding UtcOffsetText}" Width="85" />
                             <GridViewColumn Header="Hex" DisplayMemberBinding="{Binding AircraftHex}" Width="120" />
                             <GridViewColumn Header="Flight" DisplayMemberBinding="{Binding Flight}" Width="140" />
                             <GridViewColumn Header="Altitude" DisplayMemberBinding="{Binding AltitudeText}" Width="120" />
-                            <GridViewColumn Header="Speed" DisplayMemberBinding="{Binding SpeedText}" Width="100" />
+                            <GridViewColumn Header="Speed" DisplayMemberBinding="{Binding SpeedText}" Width="90" />
+                            <GridViewColumn Header="MPH" DisplayMemberBinding="{Binding MphText}" Width="90" />
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </TabItem>
+            <TabItem Header="Today">
+                <ListView ItemsSource="{Binding TodayEvents}" Margin="0,12,0,0">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding StatusText}" Value="Stale">
+                                    <Setter Property="Opacity" Value="0.55" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="Observed" DisplayMemberBinding="{Binding ObservedAtText}" Width="185" />
+                            <GridViewColumn Header="UTC offset" DisplayMemberBinding="{Binding UtcOffsetText}" Width="85" />
+                            <GridViewColumn Header="Status" DisplayMemberBinding="{Binding StatusText}" Width="75" />
+                            <GridViewColumn Header="Hex" DisplayMemberBinding="{Binding AircraftHex}" Width="120" />
+                            <GridViewColumn Header="Flight" DisplayMemberBinding="{Binding Flight}" Width="140" />
+                            <GridViewColumn Header="Altitude" DisplayMemberBinding="{Binding AltitudeText}" Width="120" />
+                            <GridViewColumn Header="Speed" DisplayMemberBinding="{Binding SpeedText}" Width="90" />
+                            <GridViewColumn Header="MPH" DisplayMemberBinding="{Binding MphText}" Width="90" />
                         </GridView>
                     </ListView.View>
                 </ListView>
             </TabItem>
             <TabItem Header="Settings">
                 <StackPanel Margin="0,12,0,0">
+                    <TextBlock Text="Readsb JSON source" Foreground="{StaticResource MutedBrush}" />
+                    <TextBox Text="{Binding ReadsbJsonUrl, Mode=OneWay}" IsReadOnly="True" Margin="0,6,0,14" Padding="10" />
                     <TextBlock Text="Readsb host" Foreground="{StaticResource MutedBrush}" />
-                    <TextBox Text="127.0.0.1" Margin="0,6,0,14" Padding="10" />
+                    <TextBox Text="{Binding ReadsbHost, Mode=OneWay}" IsReadOnly="True" Margin="0,6,0,14" Padding="10" />
                     <TextBlock Text="Readsb port" Foreground="{StaticResource MutedBrush}" />
-                            <TextBox Text="30002" Margin="0,6,0,14" Padding="10" />
+                    <TextBox Text="{Binding ReadsbPort, Mode=OneWay}" IsReadOnly="True" Margin="0,6,0,14" Padding="10" />
                     <TextBlock Text="Notification prefix" Foreground="{StaticResource MutedBrush}" />
                     <TextBox Text="Overhead alert" Margin="0,6,0,14" Padding="10" />
                     <CheckBox Content="Enable Discord notifications" IsChecked="True" />

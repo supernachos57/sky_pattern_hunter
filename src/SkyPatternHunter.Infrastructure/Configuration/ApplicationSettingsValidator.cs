@@ -58,6 +58,11 @@ public static class ApplicationSettingsValidator
             errors.Add("DetectionThresholdMiles must be greater than 0.");
         }
 
+        if (settings.DashboardStaleAfterSeconds <= 0)
+        {
+            errors.Add("DashboardStaleAfterSeconds must be greater than 0.");
+        }
+
         if (settings.ReadsbPort <= 0 || settings.ReadsbPort > 65535)
         {
             errors.Add("ReadsbPort must be between 1 and 65535.");
@@ -66,6 +71,13 @@ public static class ApplicationSettingsValidator
         if (string.IsNullOrWhiteSpace(settings.ReadsbHost))
         {
             errors.Add("ReadsbHost must not be empty.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.ReadsbJsonUrl) &&
+            (!Uri.TryCreate(settings.ReadsbJsonUrl, UriKind.Absolute, out var readsbJsonUri) ||
+             (readsbJsonUri.Scheme != Uri.UriSchemeHttp && readsbJsonUri.Scheme != Uri.UriSchemeHttps)))
+        {
+            errors.Add("ReadsbJsonUrl must be an absolute HTTP or HTTPS URL.");
         }
 
         if (string.IsNullOrWhiteSpace(settings.DataDirectory))

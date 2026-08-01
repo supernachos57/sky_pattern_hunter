@@ -54,42 +54,59 @@ public sealed class AdsbStartupHost
 
     public async Task<AdsbStartupResult> RunAsync(CancellationToken cancellationToken = default)
     {
-        _logger.Information($"ADS-B runtime started host={_settings.ReadsbHost} port={_settings.ReadsbPort}.");
+        var sourceUri = Uri.TryCreate(_settings.ReadsbJsonUrl, UriKind.Absolute, out var configuredUri)
+            ? configuredUri
+            : null;
+        var sourceHost = sourceUri?.Host ?? _settings.ReadsbHost;
+        var sourcePort = sourceUri?.IsDefaultPort == true
+            ? sourceUri.Scheme == Uri.UriSchemeHttps ? 443 : 80
+            : sourceUri?.Port ?? _settings.ReadsbPort;
 
-        var client = new AdsbClient(
-            _settings.ReadsbHost,
-            _settings.ReadsbPort,
-            onConnectAttempt: () =>
-            {
-                _monitor.RecordConnectAttempt(_settings.ReadsbHost, _settings.ReadsbPort);
-                _logger.Information($"ADS-B connect attempt host={_settings.ReadsbHost} port={_settings.ReadsbPort}.");
-            },
-            onConnected: () =>
-            {
-                _monitor.RecordConnected(_settings.ReadsbHost, _settings.ReadsbPort);
-                _logger.Information($"ADS-B connected host={_settings.ReadsbHost} port={_settings.ReadsbPort}.");
-            },
-            onDisconnected: reason =>
-            {
-                _logger.Information($"ADS-B disconnected: {reason}");
-            },
-            onError: ex =>
-            {
-                _monitor.RecordClientError(ex.Message);
-                _logger.Error($"ADS-B client error: {ex.Message}");
-            },
-            onReconnectScheduled: delay =>
-            {
-                _monitor.RecordReconnectScheduled(delay);
-                _logger.Information($"ADS-B reconnect scheduled in {delay.TotalMilliseconds:0} ms.");
-            });
+        _logger.Information($"ADS-B runtime started host={sourceHost} port={sourcePort}.");
+
+        Action onConnectAttempt = () =>
+        {
+            _monitor.RecordConnectAttempt(sourceHost, sourcePort);
+            _logger.Information($"ADS-B connect attempt host={sourceHost} port={sourcePort}.");
+        };
+        Action onConnected = () =>
+        {
+            _monitor.RecordConnected(sourceHost, sourcePort);
+            _logger.Information($"ADS-B connected host={sourceHost} port={sourcePort}.");
+        };
+        Action<Exception> onError = ex =>
+        {
+            _monitor.RecordClientError(ex.Message);
+            _logger.Error($"ADS-B client error: {ex.Message}");
+        };
+        Action<TimeSpan> onReconnectScheduled = delay =>
+        {
+            _monitor.RecordReconnectScheduled(delay);
+            _logger.Information($"ADS-B reconnect scheduled in {delay.TotalMilliseconds:0} ms.");
+        };
+
+        IAsyncEnumerable<string> payloads = sourceUri is null
+            ? new AdsbClient(
+                sourceHost,
+                sourcePort,
+                onConnectAttempt,
+                onConnected,
+                onDisconnected: reason => _logger.Information($"ADS-B disconnected: {reason}"),
+                onError,
+                onReconnectScheduled).ReadMessagesAsync(cancellationToken)
+            : new ReadsbHttpClient(
+                sourceUri,
+                onConnectAttempt: onConnectAttempt,
+                onConnected: onConnected,
+                onError: onError,
+                onReconnectScheduled: onReconnectScheduled).ReadMessagesAsync(cancellationToken);
 
         var processedCount = 0;
         var detectedEventCount = 0;
 
         try
         {
-            await foreach (var payload in client.ReadMessagesAsync(cancellationToken))
+            await foreach (var payload in payloads)
             {
                 if (TryProcessPayload(payload, DateTimeOffset.UtcNow, out var eventDetected))
                 {

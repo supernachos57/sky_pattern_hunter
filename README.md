@@ -17,13 +17,14 @@ Prerequisites
 Quickstart
 
 1. Read the architecture and roadmap in `docs/` to understand design and milestones.
-2. Run the sample readsb TCP client (helps validate connectivity):
+2. Follow the [application runbook](docs/running-the-app.md) to configure the `readsb` feed and start the WPF application.
+3. Run the sample readsb TCP client (helps validate connectivity):
 
 ```bash
 python scripts/readsb_tcp_client.py --host 192.168.48.83 --port 30001
 ```
 
-3. Run the integration test for the sample client:
+4. Run the integration test for the sample client:
 
 ```bash
 pytest tests/integration/test_readsb_tcp_client.py -q

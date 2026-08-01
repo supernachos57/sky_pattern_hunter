@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using SkyPatternHunter.Domain.Models;
@@ -27,10 +28,13 @@ public sealed class AdsbParser
             message.Flight,
             message.Lat ?? 0,
             message.Lon ?? 0,
-            message.AltBaro ?? 0,
-            message.Track ?? 0,
-            message.Speed ?? 0,
-            message.Squawk);
+                GetIntValue(message.AltBaro) ?? 0,
+                GetIntValue(message.Track) ?? 0,
+            GetIntValue(message.GroundSpeed) ??
+                GetIntValue(message.TrueAirSpeed) ??
+                GetIntValue(message.IndicatedAirSpeed) ??
+                GetIntValue(message.Speed) ?? 0,
+                GetIntValue(message.Squawk));
     }
 
     private static bool LooksLikeRawAdsbMessage(string payload)
@@ -53,15 +57,45 @@ public sealed class AdsbParser
         public double? Lon { get; set; }
 
         [JsonPropertyName("alt_baro")]
-        public int? AltBaro { get; set; }
+        public JsonElement? AltBaro { get; set; }
 
         [JsonPropertyName("track")]
-        public int? Track { get; set; }
+        public JsonElement? Track { get; set; }
 
         [JsonPropertyName("speed")]
-        public int? Speed { get; set; }
+        public JsonElement? Speed { get; set; }
+
+        [JsonPropertyName("gs")]
+        public JsonElement? GroundSpeed { get; set; }
+
+        [JsonPropertyName("tas")]
+        public JsonElement? TrueAirSpeed { get; set; }
+
+        [JsonPropertyName("ias")]
+        public JsonElement? IndicatedAirSpeed { get; set; }
 
         [JsonPropertyName("squawk")]
-        public int? Squawk { get; set; }
+        public JsonElement? Squawk { get; set; }
+    }
+
+    private static int? GetIntValue(JsonElement? value)
+    {
+        if (value is not { } element)
+        {
+            return null;
+        }
+
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetDouble(out var number))
+        {
+            return (int)Math.Round(number, MidpointRounding.AwayFromZero);
+        }
+
+        if (element.ValueKind == JsonValueKind.String &&
+            int.TryParse(element.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+        {
+            return parsed;
+        }
+
+        return null;
     }
 }

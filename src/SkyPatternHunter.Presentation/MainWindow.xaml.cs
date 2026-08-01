@@ -16,10 +16,12 @@ public partial class MainWindow : INotifyPropertyChanged
     private readonly DispatcherTimer _refreshTimer;
     private readonly CancellationTokenSource _runtimeCancellationTokenSource = new();
     private readonly FileLogger _logger;
+    private readonly ApplicationSettings _settings;
     private Task? _runtimeTask;
     private bool _runtimeStarted;
 
-    public ObservableCollection<RecentEventViewModel> Events { get; } = new();
+    public ObservableCollection<RecentEventViewModel> ActiveEvents { get; } = new();
+    public ObservableCollection<RecentEventViewModel> TodayEvents { get; } = new();
 
     private int _eventCount;
     public int EventCount
@@ -42,26 +44,31 @@ public partial class MainWindow : INotifyPropertyChanged
         private set => SetProperty(ref _latestObservedAtText, value);
     }
 
-    private string _runtimeStatusMessage = "Ready. Waiting for live feed on port 30002.";
+    private string _runtimeStatusMessage = "Ready.";
     public string RuntimeStatusMessage
     {
         get => _runtimeStatusMessage;
         private set => SetProperty(ref _runtimeStatusMessage, value);
     }
 
+    public string ReadsbHost => _settings.ReadsbHost;
+    public int ReadsbPort => _settings.ReadsbPort;
+    public string ReadsbJsonUrl => _settings.ReadsbJsonUrl ?? "Not configured";
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public MainWindow()
     {
-        var settings = new JsonConfigurationService().GetSettings();
-        settings.DataDirectory ??= Path.Combine(AppContext.BaseDirectory, "data");
+        _settings = new JsonConfigurationService().GetSettings();
+        _settings.DataDirectory ??= Path.Combine(AppContext.BaseDirectory, "data");
 
-        var journal = new OverheadEventJournal(settings.DataDirectory);
-        _dashboard = new LiveEventDashboard(journal);
-        _logger = new FileLogger(settings.LogFilePath);
+        var journal = new OverheadEventJournal(_settings.DataDirectory);
+        _dashboard = new LiveEventDashboard(journal, TimeSpan.FromSeconds(_settings.DashboardStaleAfterSeconds));
+        _logger = new FileLogger(_settings.LogFilePath);
 
         InitializeComponent();
         DataContext = this;
+        RuntimeStatusMessage = $"Ready. Waiting for live feed at {ReadsbJsonUrl}.";
 
         RefreshFromJournal();
 
@@ -80,13 +87,19 @@ public partial class MainWindow : INotifyPropertyChanged
     {
         var snapshot = _dashboard.Refresh();
 
-        Events.Clear();
-        foreach (var eventViewModel in snapshot.Events)
+        ActiveEvents.Clear();
+        foreach (var eventViewModel in snapshot.ActiveEvents)
         {
-            Events.Add(eventViewModel);
+            ActiveEvents.Add(eventViewModel);
         }
 
-        EventCount = snapshot.EventCount;
+        TodayEvents.Clear();
+        foreach (var eventViewModel in snapshot.TodayEvents)
+        {
+            TodayEvents.Add(eventViewModel);
+        }
+
+        EventCount = snapshot.ActiveAircraftCount;
         LatestAircraftHex = snapshot.LatestAircraftHex;
         LatestObservedAtText = snapshot.LatestObservedAtText;
     }
@@ -109,7 +122,7 @@ public partial class MainWindow : INotifyPropertyChanged
         try
         {
             var host = AdsbStartupHost.CreateFromConfiguration();
-            RuntimeStatusMessage = "Live feed connected. Listening for events on port 30002.";
+            RuntimeStatusMessage = $"Live feed runtime started. Connecting to {ReadsbJsonUrl}.";
             await host.RunAsync(cancellationToken);
             RuntimeStatusMessage = "Live feed runtime stopped.";
         }

@@ -9,5 +9,7 @@ public sealed class ApplicationSettings
     public double UserLongitude { get; set; }
     public double DetectionThresholdMiles { get; set; } = 10;
     public string ReadsbHost { get; set; } = "127.0.0.1";
-    public int ReadsbPort { get; set; } = 30002;
+    public int ReadsbPort { get; set; } = 30001;
+    public string? ReadsbJsonUrl { get; set; }
+    public int DashboardStaleAfterSeconds { get; set; } = 60;
 }
