@@ -2,8 +2,10 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Windows.Threading;
+using SkyPatternHunter.Infrastructure.AdsB;
 using SkyPatternHunter.Infrastructure.Configuration;
 using SkyPatternHunter.Infrastructure.Events;
 using SkyPatternHunter.Infrastructure.Logging;
@@ -15,10 +17,12 @@ public partial class MainWindow : INotifyPropertyChanged
     private readonly LiveEventDashboard _dashboard;
     private readonly DispatcherTimer _refreshTimer;
     private readonly CancellationTokenSource _runtimeCancellationTokenSource = new();
+    private readonly HttpClient _hexDbHttpClient = new();
     private readonly FileLogger _logger;
     private readonly ApplicationSettings _settings;
     private Task? _runtimeTask;
     private bool _runtimeStarted;
+    private bool _isRefreshing;
 
     public ObservableCollection<RecentEventViewModel> ActiveEvents { get; } = new();
     public ObservableCollection<RecentEventViewModel> TodayEvents { get; } = new();
@@ -63,45 +67,62 @@ public partial class MainWindow : INotifyPropertyChanged
         _settings.DataDirectory ??= Path.Combine(AppContext.BaseDirectory, "data");
 
         var journal = new OverheadEventJournal(_settings.DataDirectory);
-        _dashboard = new LiveEventDashboard(journal, TimeSpan.FromSeconds(_settings.DashboardStaleAfterSeconds));
+        _dashboard = new LiveEventDashboard(
+            journal,
+            TimeSpan.FromSeconds(_settings.DashboardStaleAfterSeconds),
+            aircraftClient: new HexDbAircraftClient(_hexDbHttpClient));
         _logger = new FileLogger(_settings.LogFilePath);
 
         InitializeComponent();
         DataContext = this;
         RuntimeStatusMessage = $"Ready. Waiting for live feed at {ReadsbJsonUrl}.";
 
-        RefreshFromJournal();
+        _ = RefreshFromJournalAsync();
 
         _refreshTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(1)
         };
-        _refreshTimer.Tick += (_, _) => RefreshFromJournal();
+        _refreshTimer.Tick += async (_, _) => await RefreshFromJournalAsync();
         _refreshTimer.Start();
 
         Loaded += OnLoaded;
         Closed += OnClosed;
     }
 
-    private void RefreshFromJournal()
+    private async Task RefreshFromJournalAsync()
     {
-        var snapshot = _dashboard.Refresh();
-
-        ActiveEvents.Clear();
-        foreach (var eventViewModel in snapshot.ActiveEvents)
+        if (_isRefreshing)
         {
-            ActiveEvents.Add(eventViewModel);
+            return;
         }
 
-        TodayEvents.Clear();
-        foreach (var eventViewModel in snapshot.TodayEvents)
-        {
-            TodayEvents.Add(eventViewModel);
-        }
+        _isRefreshing = true;
 
-        EventCount = snapshot.ActiveAircraftCount;
-        LatestAircraftHex = snapshot.LatestAircraftHex;
-        LatestObservedAtText = snapshot.LatestObservedAtText;
+        try
+        {
+            var snapshot = await _dashboard.RefreshAsync();
+
+            ActiveEvents.Clear();
+            foreach (var eventViewModel in snapshot.ActiveEvents)
+            {
+                ActiveEvents.Add(eventViewModel);
+            }
+
+            TodayEvents.Clear();
+            foreach (var eventViewModel in snapshot.TodayEvents)
+            {
+                TodayEvents.Add(eventViewModel);
+            }
+
+            EventCount = snapshot.ActiveAircraftCount;
+            LatestAircraftHex = snapshot.LatestAircraftHex;
+            LatestObservedAtText = snapshot.LatestObservedAtText;
+        }
+        finally
+        {
+            _isRefreshing = false;
+        }
     }
 
     private void OnLoaded(object sender, EventArgs e)
@@ -153,6 +174,7 @@ public partial class MainWindow : INotifyPropertyChanged
             }
         }
 
+        _hexDbHttpClient.Dispose();
         _runtimeCancellationTokenSource.Dispose();
     }
 
