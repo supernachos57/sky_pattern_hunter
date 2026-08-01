@@ -55,6 +55,7 @@ The WPF window opens and starts live ingestion automatically. Leave it open whil
 ## Confirm ingestion
 
 - The dashboard updates when an aircraft meets the configured overhead threshold.
+- The dashboard looks up six-character ICAO hex values through `https://hexdb.io/api/v1/aircraft/{hex}` and displays the registration, manufacturer, type, and registered owner when available. Lookups are cached for the lifetime of the app.
 - Runtime activity and parse errors are written to `logs/sky-pattern-hunter.log`.
 - Detected events are stored as JSONL under the application's `data` directory when no `DataDirectory` is configured.
 
