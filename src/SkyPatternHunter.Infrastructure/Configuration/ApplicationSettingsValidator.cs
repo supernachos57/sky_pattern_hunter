@@ -12,6 +12,12 @@ public sealed record ApplicationSettingsValidationResult(bool IsValid, IReadOnly
 
 public static class ApplicationSettingsValidator
 {
+    private static readonly HashSet<string> AllowedReadsbIngestionModes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "tcp",
+        "http-json"
+    };
+
     private static readonly HashSet<string> AllowedLogLevels = new(StringComparer.OrdinalIgnoreCase)
     {
         "Trace",
@@ -63,9 +69,25 @@ public static class ApplicationSettingsValidator
             errors.Add("ReadsbPort must be between 1 and 65535.");
         }
 
+        if (string.IsNullOrWhiteSpace(settings.ReadsbIngestionMode)
+            || !AllowedReadsbIngestionModes.Contains(settings.ReadsbIngestionMode.Trim()))
+        {
+            errors.Add("ReadsbIngestionMode must be one of: tcp, http-json.");
+        }
+
         if (string.IsNullOrWhiteSpace(settings.ReadsbHost))
         {
             errors.Add("ReadsbHost must not be empty.");
+        }
+
+        if (string.IsNullOrWhiteSpace(settings.ReadsbJsonPath))
+        {
+            errors.Add("ReadsbJsonPath must not be empty.");
+        }
+
+        if (settings.ReadsbJsonPollIntervalSeconds <= 0)
+        {
+            errors.Add("ReadsbJsonPollIntervalSeconds must be greater than 0.");
         }
 
         if (string.IsNullOrWhiteSpace(settings.DataDirectory))

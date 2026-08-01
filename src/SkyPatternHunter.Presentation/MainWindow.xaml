@@ -25,7 +25,7 @@
 
         <StackPanel>
             <TextBlock Text="Sky Pattern Hunter" FontSize="30" FontWeight="SemiBold" />
-            <TextBlock Text="A simple desktop shell for overhead aircraft tracking"
+            <TextBlock Text="A simple desktop shell for aircraft tracking"
                        Foreground="{StaticResource MutedBrush}"
                        Margin="0,6,0,0" />
         </StackPanel>
@@ -36,7 +36,7 @@
                 <UniformGrid Columns="3" Margin="0,16,0,0">
                     <Border Background="#0B1220" CornerRadius="12" Margin="0,0,12,0" Padding="16">
                         <StackPanel>
-                            <TextBlock Text="Events captured" Foreground="{StaticResource MutedBrush}" />
+                            <TextBlock Text="Aircraft captured" Foreground="{StaticResource MutedBrush}" />
                             <TextBlock Text="{Binding EventCount}" FontSize="28" FontWeight="SemiBold" Margin="0,8,0,0" />
                         </StackPanel>
                     </Border>
@@ -48,8 +48,8 @@
                     </Border>
                     <Border Background="#0B1220" CornerRadius="12" Padding="16">
                         <StackPanel>
-                            <TextBlock Text="Last observed" Foreground="{StaticResource MutedBrush}" />
-                            <TextBlock Text="{Binding LatestObservedAtText}" FontSize="28" FontWeight="SemiBold" Margin="0,8,0,0" TextWrapping="Wrap" />
+                            <TextBlock Text="Last observed (EST)" Foreground="{StaticResource MutedBrush}" />
+                            <TextBlock Text="{Binding LatestObservedAtText}" FontSize="24" FontWeight="SemiBold" Margin="0,8,0,0" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
                 </UniformGrid>
@@ -57,11 +57,12 @@
         </Border>
 
         <TabControl Grid.Row="4" Background="{StaticResource CardBackground}" BorderThickness="0" Padding="16">
-            <TabItem Header="Recent Events">
+            <TabItem Header="Recent Aircraft">
                 <ListView ItemsSource="{Binding Events}" Margin="0,12,0,0">
                     <ListView.View>
                         <GridView>
-                            <GridViewColumn Header="Observed" DisplayMemberBinding="{Binding ObservedAtText}" Width="220" />
+                            <GridViewColumn Header="Type" DisplayMemberBinding="{Binding EventTypeText}" Width="110" />
+                            <GridViewColumn Header="Observed (EST)" DisplayMemberBinding="{Binding ObservedAtText}" Width="220" />
                             <GridViewColumn Header="Hex" DisplayMemberBinding="{Binding AircraftHex}" Width="120" />
                             <GridViewColumn Header="Flight" DisplayMemberBinding="{Binding Flight}" Width="140" />
                             <GridViewColumn Header="Altitude" DisplayMemberBinding="{Binding AltitudeText}" Width="120" />
@@ -73,12 +74,14 @@
             <TabItem Header="Settings">
                 <StackPanel Margin="0,12,0,0">
                     <TextBlock Text="Readsb host" Foreground="{StaticResource MutedBrush}" />
-                    <TextBox Text="127.0.0.1" Margin="0,6,0,14" Padding="10" />
+                    <TextBox x:Name="ReadsbHostTextBox" Margin="0,6,0,14" Padding="10" />
                     <TextBlock Text="Readsb port" Foreground="{StaticResource MutedBrush}" />
-                    <TextBox Text="30002" Margin="0,6,0,14" Padding="10" />
+                    <TextBox x:Name="ReadsbPortTextBox" Margin="0,6,0,14" Padding="10" />
                     <TextBlock Text="Notification prefix" Foreground="{StaticResource MutedBrush}" />
-                    <TextBox Text="Overhead alert" Margin="0,6,0,14" Padding="10" />
-                    <CheckBox Content="Enable Discord notifications" IsChecked="True" />
+                    <TextBox x:Name="NotificationPrefixTextBox" Margin="0,6,0,14" Padding="10" />
+                    <CheckBox x:Name="DiscordNotificationsCheckBox" Content="Enable Discord notifications" />
+                    <Button Content="Save settings" Margin="0,14,0,0" Padding="10" HorizontalAlignment="Left" Click="SaveSettings_Click" />
+                    <TextBlock x:Name="SettingsStatusTextBlock" Margin="0,10,0,0" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
                 </StackPanel>
             </TabItem>
             <TabItem Header="Log">

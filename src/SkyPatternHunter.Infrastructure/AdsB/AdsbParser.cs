@@ -6,6 +6,8 @@ namespace SkyPatternHunter.Infrastructure.AdsB;
 
 public sealed class AdsbParser
 {
+    private readonly RawAdsbFrameDecoder _rawFrameDecoder = new();
+
     public Aircraft Parse(string payload)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(payload);
@@ -13,8 +15,18 @@ public sealed class AdsbParser
         var trimmedPayload = payload.Trim();
         if (LooksLikeRawAdsbMessage(trimmedPayload))
         {
-            var normalizedHex = trimmedPayload.Trim('*', ';');
-            return new Aircraft(normalizedHex, null, 0, 0, 0, 0, 0, null);
+            var normalizedHex = trimmedPayload.Trim('*', ';').ToUpperInvariant();
+            var decodedFrame = _rawFrameDecoder.Decode(normalizedHex, DateTimeOffset.UtcNow);
+
+            return new Aircraft(
+                decodedFrame.Hex,
+                decodedFrame.Flight,
+                decodedFrame.Latitude ?? 0,
+                decodedFrame.Longitude ?? 0,
+                decodedFrame.Altitude ?? 0,
+                decodedFrame.Track ?? 0,
+                decodedFrame.Speed ?? 0,
+                decodedFrame.Squawk);
         }
 
         var message = JsonSerializer.Deserialize<AdsbMessage>(trimmedPayload, new JsonSerializerOptions

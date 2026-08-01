@@ -1,6 +1,7 @@
 ﻿using System.IO;
 using System.Text.Json;
 using SkyPatternHunter.Application.Detection;
+using SkyPatternHunter.Domain.Models;
 using SkyPatternHunter.Domain.Notifications;
 using SkyPatternHunter.Infrastructure.AdsB;
 using SkyPatternHunter.Infrastructure.Configuration;
@@ -15,6 +16,7 @@ public sealed class AdsbStartupHost
 {
     private readonly ApplicationSettings _settings;
     private readonly OverheadEventJournal _journal;
+    private readonly AircraftSightingJournal _sightingJournal;
     private readonly FileLogger _logger;
     private readonly RuntimeIngestionMonitor _monitor;
     private readonly DiscordNotificationDispatcher? _notificationDispatcher;
@@ -30,6 +32,7 @@ public sealed class AdsbStartupHost
     {
         _settings = settings;
         _journal = journal;
+        _sightingJournal = new AircraftSightingJournal(settings.DataDirectory);
         _logger = logger;
         _monitor = monitor;
         _notificationDispatcher = NotificationDispatcherFactory.Create(settings);
@@ -58,9 +61,78 @@ public sealed class AdsbStartupHost
 
     public async Task<AdsbStartupResult> RunAsync(CancellationToken cancellationToken = default)
     {
-        _logger.Information($"ADS-B runtime started host={_settings.ReadsbHost} port={_settings.ReadsbPort}.");
+        _logger.Information($"ADS-B runtime started mode={_settings.ReadsbIngestionMode} host={_settings.ReadsbHost} port={_settings.ReadsbPort}.");
 
-        var client = new AdsbClient(
+        var processedCount = 0;
+        var detectedEventCount = 0;
+
+        try
+        {
+            await foreach (var payload in ReadMessagesAsync(cancellationToken))
+            {
+                if (TryProcessPayload(payload, DateTimeOffset.UtcNow, out var eventDetected))
+                {
+                    processedCount++;
+
+                    if (eventDetected)
+                    {
+                        detectedEventCount++;
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+
+        _monitor.RecordRunStopped(processedCount, detectedEventCount);
+        _logger.Information($"ADS-B runtime stopped processed={processedCount} detected={detectedEventCount}.");
+        return new AdsbStartupResult(processedCount, detectedEventCount);
+    }
+
+    private async IAsyncEnumerable<string> ReadMessagesAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        if (string.Equals(_settings.ReadsbIngestionMode, "http-json", StringComparison.OrdinalIgnoreCase))
+        {
+            var client = new ReadsbJsonHttpClient(
+                _settings.ReadsbHost,
+                _settings.ReadsbPort,
+                _settings.ReadsbJsonPath,
+                TimeSpan.FromSeconds(_settings.ReadsbJsonPollIntervalSeconds),
+                onConnectAttempt: () =>
+                {
+                    _monitor.RecordConnectAttempt(_settings.ReadsbHost, _settings.ReadsbPort);
+                    _logger.Information($"ADS-B JSON poll attempt uri=http://{_settings.ReadsbHost}:{_settings.ReadsbPort}{_settings.ReadsbJsonPath}");
+                },
+                onConnected: () =>
+                {
+                    _monitor.RecordConnected(_settings.ReadsbHost, _settings.ReadsbPort);
+                    _logger.Information($"ADS-B JSON poll connected uri=http://{_settings.ReadsbHost}:{_settings.ReadsbPort}{_settings.ReadsbJsonPath}");
+                },
+                onDisconnected: reason =>
+                {
+                    _logger.Information($"ADS-B JSON poll disconnected: {reason}");
+                },
+                onError: ex =>
+                {
+                    _monitor.RecordClientError(ex.Message);
+                    _logger.Error($"ADS-B JSON poll error: {ex.Message}");
+                },
+                onReconnectScheduled: delay =>
+                {
+                    _monitor.RecordReconnectScheduled(delay);
+                    _logger.Information($"ADS-B JSON poll reconnect scheduled in {delay.TotalMilliseconds:0} ms.");
+                });
+
+            await foreach (var payload in client.ReadMessagesAsync(cancellationToken))
+            {
+                yield return payload;
+            }
+
+            yield break;
+        }
+
+        var tcpClient = new AdsbClient(
             _settings.ReadsbHost,
             _settings.ReadsbPort,
             onConnectAttempt: () =>
@@ -88,31 +160,10 @@ public sealed class AdsbStartupHost
                 _logger.Information($"ADS-B reconnect scheduled in {delay.TotalMilliseconds:0} ms.");
             });
 
-        var processedCount = 0;
-        var detectedEventCount = 0;
-
-        try
+        await foreach (var payload in tcpClient.ReadMessagesAsync(cancellationToken))
         {
-            await foreach (var payload in client.ReadMessagesAsync(cancellationToken))
-            {
-                if (TryProcessPayload(payload, DateTimeOffset.UtcNow, out var eventDetected))
-                {
-                    processedCount++;
-
-                    if (eventDetected)
-                    {
-                        detectedEventCount++;
-                    }
-                }
-            }
+            yield return payload;
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-        }
-
-        _monitor.RecordRunStopped(processedCount, detectedEventCount);
-        _logger.Information($"ADS-B runtime stopped processed={processedCount} detected={detectedEventCount}.");
-        return new AdsbStartupResult(processedCount, detectedEventCount);
     }
 
     public async Task<AdsbStartupResult> ProcessPayloadsAsync(IEnumerable<string> payloads, CancellationToken cancellationToken = default)
@@ -169,6 +220,10 @@ public sealed class AdsbStartupHost
                 _settings.DetectionThresholdMiles,
                 observedAt);
 
+            var isOverhead = overheadEvent is not null;
+            _sightingJournal.Append(new AircraftSighting(aircraft, observedAt, isOverhead));
+            _logger.Information($"Aircraft sighting persisted hex={aircraft.Hex} overhead={isOverhead}.");
+
             if (overheadEvent is not null)
             {
                 _monitor.RecordEventDetected(overheadEvent.Aircraft.Hex);
@@ -224,6 +279,7 @@ public sealed class AdsbProcessingPipeline
     private readonly AdsbParser _parser = new();
     private readonly IOverheadEventDetector _detector = new OverheadEventDetector();
     private readonly OverheadEventJournal _journal;
+    private readonly AircraftSightingJournal _sightingJournal;
     private readonly ApplicationSettings _settings;
     private readonly FileLogger _logger;
     private readonly RuntimeIngestionMonitor _monitor;
@@ -238,6 +294,7 @@ public sealed class AdsbProcessingPipeline
     {
         _settings = settings;
         _journal = journal;
+        _sightingJournal = new AircraftSightingJournal(settings.DataDirectory);
         _logger = logger;
         _monitor = monitor;
         _notificationDispatcher = NotificationDispatcherFactory.Create(settings);
@@ -293,6 +350,10 @@ public sealed class AdsbProcessingPipeline
                 _settings.UserLongitude,
                 _settings.DetectionThresholdMiles,
                 observedAt);
+
+            var isOverhead = overheadEvent is not null;
+            _sightingJournal.Append(new AircraftSighting(aircraft, observedAt, isOverhead));
+            _logger.Information($"Aircraft sighting persisted hex={aircraft.Hex} overhead={isOverhead}.");
 
             if (overheadEvent is not null)
             {

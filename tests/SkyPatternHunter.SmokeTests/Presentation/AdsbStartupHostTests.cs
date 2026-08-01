@@ -83,6 +83,12 @@ public class AdsbStartupHostTests
             var persistedEvents = journal.ReadAll();
             Assert.Single(persistedEvents);
             Assert.Equal("A1B2C3", persistedEvents.Single().Aircraft.Hex);
+
+            var sightingsJournal = new AircraftSightingJournal(settings.DataDirectory);
+            var sightings = sightingsJournal.ReadAll();
+            Assert.Single(sightings);
+            Assert.Equal("A1B2C3", sightings.Single().Aircraft.Hex);
+            Assert.True(sightings.Single().IsOverhead);
         }
         finally
         {
@@ -187,6 +193,51 @@ public class AdsbStartupHostTests
             var logOutput = await File.ReadAllTextAsync(logPath);
             Assert.Contains("Discord notification payload created", logOutput, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("Discord notification suppressed by cooldown", logOutput, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ProcessAsync_PersistsNonOverheadAircraftSighting_WithoutCreatingOverheadEvent()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            var settings = new ApplicationSettings
+            {
+                DataDirectory = tempDirectory,
+                UserLatitude = 0,
+                UserLongitude = 0,
+                DetectionThresholdMiles = 1
+            };
+
+            var overheadJournal = new OverheadEventJournal(settings.DataDirectory);
+            var pipeline = new AdsbProcessingPipeline(settings, overheadJournal);
+
+            var result = await pipeline.ProcessAsync(new[]
+            {
+                """
+                {"hex":"D4E5F6","lat":50,"lon":50,"alt_baro":20000,"track":90,"speed":320}
+                """
+            });
+
+            Assert.Equal(1, result.ProcessedCount);
+            Assert.Equal(0, result.DetectedEventCount);
+            Assert.Empty(overheadJournal.ReadAll());
+
+            var sightingsJournal = new AircraftSightingJournal(settings.DataDirectory);
+            var sightings = sightingsJournal.ReadAll();
+            Assert.Single(sightings);
+            Assert.Equal("D4E5F6", sightings.Single().Aircraft.Hex);
+            Assert.False(sightings.Single().IsOverhead);
         }
         finally
         {

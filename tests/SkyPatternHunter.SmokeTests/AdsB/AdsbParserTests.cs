@@ -43,7 +43,7 @@ public class AdsbParserTests
 
         Aircraft aircraft = parser.Parse(payload);
 
-        Assert.Equal("8DAA6ADEEA3CA858013C08A09877", aircraft.Hex);
+        Assert.Equal("AA6ADE", aircraft.Hex);
         Assert.Null(aircraft.Flight);
         Assert.Equal(0, aircraft.Latitude);
         Assert.Equal(0, aircraft.Longitude);
@@ -51,6 +51,21 @@ public class AdsbParserTests
         Assert.Equal(0, aircraft.Track);
         Assert.Equal(0, aircraft.Speed);
         Assert.Null(aircraft.Squawk);
+    }
+
+    [Fact]
+    public void Parse_RawAirbornePositionPair_DecodesAltitudeAndPosition()
+    {
+        var parser = new AdsbParser();
+
+        // Known DF17 airborne position CPR example frames for ICAO 40621D.
+        _ = parser.Parse("*8D40621D58C382D690C8AC2863A7;"); // even
+        Aircraft aircraft = parser.Parse("*8D40621D58C386435CC412692AD6;"); // odd
+
+        Assert.Equal("40621D", aircraft.Hex);
+        Assert.Equal(38000, aircraft.Altitude);
+        Assert.InRange(aircraft.Latitude, 52.20, 52.30);
+        Assert.InRange(aircraft.Longitude, 3.85, 3.98);
     }
 
     [Fact]
