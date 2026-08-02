@@ -61,7 +61,7 @@ public sealed class LiveEventDashboard
         var today = now.ToLocalTime().Date;
         var latestByAircraft = events
             .GroupBy(item => item.Aircraft.Hex, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.MaxBy(item => item.ObservedAt)!)
+            .Select(MergeLatestEvent)
             .ToArray();
         var todayEvents = latestByAircraft
             .Where(item => item.ObservedAt.ToLocalTime().Date == today)
@@ -145,5 +145,42 @@ public sealed class LiveEventDashboard
     private static double RadiansToDegrees(double radians)
     {
         return radians * 180d / Math.PI;
+    }
+
+    private static SkyPatternHunter.Domain.Models.OverheadEvent MergeLatestEvent(
+        IGrouping<string, SkyPatternHunter.Domain.Models.OverheadEvent> group)
+    {
+        var orderedEvents = group
+            .OrderByDescending(item => item.ObservedAt)
+            .ToArray();
+        var latestEvent = orderedEvents[0];
+        var latestAircraft = latestEvent.Aircraft;
+        var mergedAircraft = new SkyPatternHunter.Domain.Models.Aircraft(
+            latestAircraft.Hex,
+            ResolveValue(latestAircraft.Flight, orderedEvents.Select(item => item.Aircraft.Flight), string.IsNullOrWhiteSpace),
+            ResolveValue(latestAircraft.Latitude, orderedEvents.Select(item => item.Aircraft.Latitude), value => value == 0),
+            ResolveValue(latestAircraft.Longitude, orderedEvents.Select(item => item.Aircraft.Longitude), value => value == 0),
+            ResolveValue(latestAircraft.Altitude, orderedEvents.Select(item => item.Aircraft.Altitude), value => value <= 0),
+            ResolveValue(latestAircraft.Track, orderedEvents.Select(item => item.Aircraft.Track), value => value == 0),
+            ResolveValue(latestAircraft.Speed, orderedEvents.Select(item => item.Aircraft.Speed), value => value <= 0),
+            ResolveNullableValue(latestAircraft.Squawk, orderedEvents.Select(item => item.Aircraft.Squawk)));
+
+        return new SkyPatternHunter.Domain.Models.OverheadEvent(mergedAircraft, latestEvent.ObservedAt);
+    }
+
+    private static T ResolveValue<T>(T currentValue, IEnumerable<T> values, Func<T, bool> isMissing)
+    {
+        if (!isMissing(currentValue))
+        {
+            return currentValue;
+        }
+
+        return values.FirstOrDefault(value => !isMissing(value)) ?? currentValue;
+    }
+
+    private static T? ResolveNullableValue<T>(T? currentValue, IEnumerable<T?> values)
+        where T : struct
+    {
+        return currentValue ?? values.FirstOrDefault(value => value.HasValue);
     }
 }
