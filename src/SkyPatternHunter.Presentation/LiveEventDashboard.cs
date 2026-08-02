@@ -94,10 +94,12 @@ public sealed class LiveEventDashboard
 
         string DetermineStatus(SkyPatternHunter.Domain.Models.OverheadEvent overheadEvent)
         {
-            var previousEvent = events
-                .Where(item => item.Aircraft.Hex.Equals(overheadEvent.Aircraft.Hex, StringComparison.OrdinalIgnoreCase) && item.ObservedAt < overheadEvent.ObservedAt)
-                .OrderByDescending(item => item.ObservedAt)
-                .FirstOrDefault();
+            var aircraftEvents = events
+                .Where(item => item.Aircraft.Hex.Equals(overheadEvent.Aircraft.Hex, StringComparison.OrdinalIgnoreCase) && item.ObservedAt <= overheadEvent.ObservedAt)
+                .OrderBy(item => item.ObservedAt)
+                .ToArray();
+            var previousEvent = aircraftEvents
+                .LastOrDefault(item => item.ObservedAt < overheadEvent.ObservedAt);
 
             if (previousEvent is not null)
             {
@@ -113,10 +115,24 @@ public sealed class LiveEventDashboard
                 }
             }
 
-            return IsHeadingTowardMco(overheadEvent.Aircraft)
-                ? "Going to MCO"
-                : "Leaving";
+            var knownDirection = aircraftEvents
+                .Select(item => TryDetermineDirectionStatus(item.Aircraft))
+                .FirstOrDefault(status => status is not null);
+
+            return knownDirection ?? "Unknown";
         }
+    }
+
+    private static string? TryDetermineDirectionStatus(SkyPatternHunter.Domain.Models.Aircraft aircraft)
+    {
+        if (aircraft.Track <= 0 || aircraft.Latitude == 0 || aircraft.Longitude == 0)
+        {
+            return null;
+        }
+
+        return IsHeadingTowardMco(aircraft)
+            ? "Going to MCO"
+            : "Leaving";
     }
 
     private static bool IsHeadingTowardMco(SkyPatternHunter.Domain.Models.Aircraft aircraft)

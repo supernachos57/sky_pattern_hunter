@@ -156,7 +156,7 @@ public class LiveEventDashboardTests
     }
 
     [Fact]
-    public void Refresh_FormatsSpeedInKnotsAndMph_AndMarksUnavailableSpeed()
+    public void Refresh_FormatsSpeedInMph_AndMarksUnavailableSpeed()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDirectory);
@@ -177,9 +177,7 @@ public class LiveEventDashboardTests
                 clock: () => DateTimeOffset.Parse("2026-07-29T12:02:00+00:00")).Refresh();
 
             Assert.Equal("Unknown", snapshot.TodayEvents[0].SpeedText);
-            Assert.Equal("Unknown", snapshot.TodayEvents[0].MphText);
-            Assert.Equal("100 kt", snapshot.TodayEvents[1].SpeedText);
-            Assert.Equal("115 mph", snapshot.TodayEvents[1].MphText);
+            Assert.Equal("115 mph", snapshot.TodayEvents[1].SpeedText);
         }
         finally
         {
@@ -286,8 +284,40 @@ public class LiveEventDashboardTests
             Assert.Single(snapshot.TodayEvents);
             Assert.Equal("DAL123", snapshot.TodayEvents[0].Flight);
             Assert.Equal("32000 ft", snapshot.TodayEvents[0].AltitudeText);
-            Assert.Equal("425 kt", snapshot.TodayEvents[0].SpeedText);
-            Assert.Equal("489 mph", snapshot.TodayEvents[0].MphText);
+            Assert.Equal("489 mph", snapshot.TodayEvents[0].SpeedText);
+            Assert.Equal("Going to MCO", snapshot.TodayEvents[0].StatusText);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Refresh_PreservesKnownDirectionAcrossLaterOverheadEvents()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            var journal = new OverheadEventJournal(tempDirectory);
+            journal.Append(new OverheadEvent(
+                new Aircraft("TURN01", "FLT1", 28.4312, -81.4081, 15000, 90, 400, null),
+                DateTimeOffset.Parse("2026-07-29T12:00:00+00:00")));
+            journal.Append(new OverheadEvent(
+                new Aircraft("TURN01", "FLT1", 28.4312, -81.2081, 15100, 90, 400, null),
+                DateTimeOffset.Parse("2026-07-29T12:01:00+00:00")));
+
+            var snapshot = new LiveEventDashboard(
+                journal,
+                staleAfter: TimeSpan.FromMinutes(10),
+                clock: () => DateTimeOffset.Parse("2026-07-29T12:02:00+00:00")).Refresh();
+
+            Assert.Single(snapshot.TodayEvents);
             Assert.Equal("Going to MCO", snapshot.TodayEvents[0].StatusText);
         }
         finally

@@ -4,13 +4,12 @@ using SkyPatternHunter.Infrastructure.AdsB;
 
 namespace SkyPatternHunter.Presentation;
 
-public sealed record RecentEventViewModel(string AircraftHex, string? Flight, string AircraftDescription, string ObservedAtText, string UtcOffsetText, string StatusText, bool IsStale, string AltitudeText, string SpeedText, string MphText)
+public sealed record RecentEventViewModel(string AircraftHex, string? Flight, string AircraftDescription, string ObservedAtText, string UtcOffsetText, string StatusText, bool IsStale, string AltitudeText, string SpeedText)
 {
     public static RecentEventViewModel FromEvent(OverheadEvent overheadEvent, string statusText, bool isStale, HexDbAircraft? aircraftDetails = null)
     {
         var localObservedAt = overheadEvent.ObservedAt.ToLocalTime();
-        var speedText = overheadEvent.Aircraft.Speed > 0 ? $"{overheadEvent.Aircraft.Speed} kt" : "Unknown";
-        var mphText = overheadEvent.Aircraft.Speed > 0
+        var speedText = overheadEvent.Aircraft.Speed > 0
             ? $"{overheadEvent.Aircraft.Speed * 1.15078:0} mph"
             : "Unknown";
         var aircraftDescription = FormatAircraftDescription(aircraftDetails);
@@ -24,8 +23,7 @@ public sealed record RecentEventViewModel(string AircraftHex, string? Flight, st
             statusText,
             isStale,
             $"{overheadEvent.Aircraft.Altitude} ft",
-            speedText,
-            mphText);
+            speedText);
     }
 
     private static string FormatAircraftDescription(HexDbAircraft? aircraftDetails)

@@ -5,6 +5,8 @@ namespace SkyPatternHunter.Infrastructure.Notifications;
 
 public sealed class DiscordDmNotificationProvider
 {
+    private const double KnotsToMilesPerHour = 1.15078d;
+
     public DiscordDmNotificationPayload? CreatePayload(DiscordDmNotificationRequest request, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -27,8 +29,11 @@ public sealed class DiscordDmNotificationProvider
         var squawk = aircraft.Squawk.HasValue
             ? aircraft.Squawk.Value.ToString(CultureInfo.InvariantCulture)
             : "unknown";
+        var speed = aircraft.Speed > 0
+            ? $"{aircraft.Speed * KnotsToMilesPerHour:0} mph"
+            : "unknown";
 
-        var content = $"{prefix}: aircraft {aircraft.Hex} ({flight}) was overhead at {request.OverheadEvent.ObservedAt:O}. Altitude {aircraft.Altitude} ft, speed {aircraft.Speed} kt, squawk {squawk}.";
+        var content = $"{prefix}: aircraft {aircraft.Hex} ({flight}) was overhead at {request.OverheadEvent.ObservedAt:O}. Altitude {aircraft.Altitude} ft, speed {speed}, squawk {squawk}.";
 
         return new DiscordDmNotificationPayload(request.RecipientUserId, content);
     }

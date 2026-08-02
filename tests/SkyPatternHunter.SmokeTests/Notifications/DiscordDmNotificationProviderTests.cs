@@ -25,7 +25,7 @@ public class DiscordDmNotificationProviderTests
         Assert.Contains("A1B2C3", payload.Content);
         Assert.Contains("DAL123", payload.Content);
         Assert.Contains("Altitude 32000 ft", payload.Content);
-        Assert.Contains("speed 450 kt", payload.Content);
+        Assert.Contains("speed 518 mph", payload.Content);
     }
 
     [Fact]
