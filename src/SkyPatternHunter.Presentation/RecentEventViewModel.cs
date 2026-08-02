@@ -4,9 +4,20 @@ using SkyPatternHunter.Infrastructure.AdsB;
 
 namespace SkyPatternHunter.Presentation;
 
-public sealed record RecentEventViewModel(string AircraftHex, string? Flight, string AircraftDescription, string ObservedAtText, string UtcOffsetText, string StatusText, string AltitudeText, string SpeedText, string MphText)
+public sealed record RecentEventViewModel(
+    string AircraftHex,
+    string? Flight,
+    string AircraftDescription,
+    string ObservedAtText,
+    string UtcOffsetText,
+    string StatusText,
+    string AltitudeText,
+    string SpeedText,
+    string MphText,
+    string DirectionText,
+    string ClimbText)
 {
-    public static RecentEventViewModel FromEvent(OverheadEvent overheadEvent, bool isStale, HexDbAircraft? aircraftDetails = null)
+    public static RecentEventViewModel FromEvent(OverheadEvent overheadEvent, bool isStale, HexDbAircraft? aircraftDetails = null, MovementStatus? movement = null)
     {
         var localObservedAt = overheadEvent.ObservedAt.ToLocalTime();
         var speedText = overheadEvent.Aircraft.Speed > 0 ? $"{overheadEvent.Aircraft.Speed} kt" : "Unknown";
@@ -14,6 +25,7 @@ public sealed record RecentEventViewModel(string AircraftHex, string? Flight, st
             ? $"{overheadEvent.Aircraft.Speed * 1.15078:0} mph"
             : "Unknown";
         var aircraftDescription = FormatAircraftDescription(aircraftDetails);
+        var status = movement ?? new MovementStatus("Unknown", "Unknown");
 
         return new RecentEventViewModel(
             overheadEvent.Aircraft.Hex,
@@ -24,7 +36,9 @@ public sealed record RecentEventViewModel(string AircraftHex, string? Flight, st
             isStale ? "Stale" : "Active",
             $"{overheadEvent.Aircraft.Altitude} ft",
             speedText,
-            mphText);
+            mphText,
+            status.Direction,
+            status.Climb);
     }
 
     private static string FormatAircraftDescription(HexDbAircraft? aircraftDetails)

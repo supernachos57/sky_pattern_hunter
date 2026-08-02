@@ -2,6 +2,7 @@
 
 ## Project guidance
 - Keep documentation aligned with the architecture and requirements documents.
+- Prefer machine-agnostic, portable implementations that do not depend on local machine-specific paths, shell quirks, or environment assumptions.
 - When creating or updating implementation tasks, issues, or backlog items, always include testing expectations.
 - Each issue should include at least one acceptance criterion related to validation, verification, or tests unless the task is purely documentation or setup.
 - Prefer small, phased, implementation-sized work items over large, vague tasks.

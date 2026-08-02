@@ -17,13 +17,17 @@ public sealed class LiveEventDashboard
     private readonly HexDbAircraftClient? _aircraftClient;
     private readonly TimeSpan _staleAfter;
     private readonly Func<DateTimeOffset> _clock;
+    private readonly double _userLatitude;
+    private readonly double _userLongitude;
 
-    public LiveEventDashboard(OverheadEventJournal journal, TimeSpan? staleAfter = null, Func<DateTimeOffset>? clock = null, HexDbAircraftClient? aircraftClient = null)
+    public LiveEventDashboard(OverheadEventJournal journal, TimeSpan? staleAfter = null, Func<DateTimeOffset>? clock = null, HexDbAircraftClient? aircraftClient = null, double userLatitude = 0, double userLongitude = 0)
     {
         _journal = journal;
         _aircraftClient = aircraftClient;
         _staleAfter = staleAfter ?? TimeSpan.FromSeconds(60);
         _clock = clock ?? (() => DateTimeOffset.UtcNow);
+        _userLatitude = userLatitude;
+        _userLongitude = userLongitude;
     }
 
     public LiveEventDashboardSnapshot Refresh()
@@ -58,20 +62,36 @@ public sealed class LiveEventDashboard
         var today = now.ToLocalTime().Date;
         var latestByAircraft = events
             .GroupBy(item => item.Aircraft.Hex, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.MaxBy(item => item.ObservedAt)!)
+            .Select(group =>
+            {
+                var orderedEvents = group.OrderBy(item => item.ObservedAt).ToArray();
+                var latestEvent = orderedEvents.Last();
+                var previousEvent = orderedEvents.Length > 1 ? orderedEvents[^2] : null;
+                var movement = MovementStatusClassifier.Classify(latestEvent, previousEvent, _userLatitude, _userLongitude);
+                return (LatestEvent: latestEvent, Movement: movement);
+            })
             .ToArray();
         var todayEvents = latestByAircraft
+            .Select(item => item.LatestEvent)
             .Where(item => item.ObservedAt.ToLocalTime().Date == today)
             .ToArray();
         var activeAircraft = todayEvents
             .Where(item => now - item.ObservedAt <= _staleAfter)
             .OrderByDescending(item => item.ObservedAt)
-            .Select(item => RecentEventViewModel.FromEvent(item, isStale: false, GetDetails(item)))
+            .Select(item =>
+            {
+                var movement = latestByAircraft.Single(candidate => candidate.LatestEvent == item).Movement;
+                return RecentEventViewModel.FromEvent(item, isStale: false, GetDetails(item), movement);
+            })
             .ToArray();
         var staleAircraft = todayEvents
             .Where(item => now - item.ObservedAt > _staleAfter)
             .OrderByDescending(item => item.ObservedAt)
-            .Select(item => RecentEventViewModel.FromEvent(item, isStale: true, GetDetails(item)))
+            .Select(item =>
+            {
+                var movement = latestByAircraft.Single(candidate => candidate.LatestEvent == item).Movement;
+                return RecentEventViewModel.FromEvent(item, isStale: true, GetDetails(item), movement);
+            })
             .ToArray();
         var latestEvent = todayEvents.MaxBy(item => item.ObservedAt);
 
