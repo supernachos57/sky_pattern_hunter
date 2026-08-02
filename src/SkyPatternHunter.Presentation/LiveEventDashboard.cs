@@ -13,6 +13,9 @@ public sealed record LiveEventDashboardSnapshot(
 
 public sealed class LiveEventDashboard
 {
+    private const double McoLatitude = 28.4312;
+    private const double McoLongitude = -81.3081;
+    private const int AltitudeTrendThresholdFeet = 500;
     private readonly OverheadEventJournal _journal;
     private readonly HexDbAircraftClient? _aircraftClient;
     private readonly TimeSpan _staleAfter;
@@ -66,12 +69,12 @@ public sealed class LiveEventDashboard
         var activeAircraft = todayEvents
             .Where(item => now - item.ObservedAt <= _staleAfter)
             .OrderByDescending(item => item.ObservedAt)
-            .Select(item => RecentEventViewModel.FromEvent(item, isStale: false, GetDetails(item)))
+            .Select(item => RecentEventViewModel.FromEvent(item, DetermineStatus(item), isStale: false, GetDetails(item)))
             .ToArray();
         var staleAircraft = todayEvents
             .Where(item => now - item.ObservedAt > _staleAfter)
             .OrderByDescending(item => item.ObservedAt)
-            .Select(item => RecentEventViewModel.FromEvent(item, isStale: true, GetDetails(item)))
+            .Select(item => RecentEventViewModel.FromEvent(item, DetermineStatus(item), isStale: true, GetDetails(item)))
             .ToArray();
         var latestEvent = todayEvents.MaxBy(item => item.ObservedAt);
 
@@ -80,7 +83,7 @@ public sealed class LiveEventDashboard
             latestEvent?.Aircraft.Hex ?? "None",
             latestEvent is null
                 ? "No events yet"
-                : RecentEventViewModel.FromEvent(latestEvent, isStale: false).ObservedAtText,
+                : RecentEventViewModel.FromEvent(latestEvent, DetermineStatus(latestEvent), isStale: false).ObservedAtText,
             activeAircraft,
             activeAircraft.Concat(staleAircraft).ToArray());
 
@@ -88,5 +91,59 @@ public sealed class LiveEventDashboard
         {
             return detailsByHex.GetValueOrDefault(overheadEvent.Aircraft.Hex);
         }
+
+        string DetermineStatus(SkyPatternHunter.Domain.Models.OverheadEvent overheadEvent)
+        {
+            var previousEvent = events
+                .Where(item => item.Aircraft.Hex.Equals(overheadEvent.Aircraft.Hex, StringComparison.OrdinalIgnoreCase) && item.ObservedAt < overheadEvent.ObservedAt)
+                .OrderByDescending(item => item.ObservedAt)
+                .FirstOrDefault();
+
+            if (previousEvent is not null)
+            {
+                var altitudeChange = overheadEvent.Aircraft.Altitude - previousEvent.Aircraft.Altitude;
+                if (altitudeChange <= -AltitudeTrendThresholdFeet)
+                {
+                    return "Descending";
+                }
+
+                if (altitudeChange >= AltitudeTrendThresholdFeet)
+                {
+                    return "Ascending";
+                }
+            }
+
+            return IsHeadingTowardMco(overheadEvent.Aircraft)
+                ? "Going to MCO"
+                : "Leaving";
+        }
+    }
+
+    private static bool IsHeadingTowardMco(SkyPatternHunter.Domain.Models.Aircraft aircraft)
+    {
+        var bearingToMco = CalculateBearingDegrees(aircraft.Latitude, aircraft.Longitude, McoLatitude, McoLongitude);
+        var headingDifference = Math.Abs(((aircraft.Track - bearingToMco + 540) % 360) - 180);
+        return headingDifference <= 45;
+    }
+
+    private static double CalculateBearingDegrees(double startLatitude, double startLongitude, double endLatitude, double endLongitude)
+    {
+        var startLatitudeRadians = DegreesToRadians(startLatitude);
+        var endLatitudeRadians = DegreesToRadians(endLatitude);
+        var longitudeDeltaRadians = DegreesToRadians(endLongitude - startLongitude);
+        var y = Math.Sin(longitudeDeltaRadians) * Math.Cos(endLatitudeRadians);
+        var x = (Math.Cos(startLatitudeRadians) * Math.Sin(endLatitudeRadians))
+            - (Math.Sin(startLatitudeRadians) * Math.Cos(endLatitudeRadians) * Math.Cos(longitudeDeltaRadians));
+        return (RadiansToDegrees(Math.Atan2(y, x)) + 360) % 360;
+    }
+
+    private static double DegreesToRadians(double degrees)
+    {
+        return degrees * Math.PI / 180d;
+    }
+
+    private static double RadiansToDegrees(double radians)
+    {
+        return radians * 180d / Math.PI;
     }
 }

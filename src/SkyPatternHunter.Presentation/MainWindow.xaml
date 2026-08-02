@@ -62,6 +62,7 @@
                     <ListView.View>
                         <GridView>
                             <GridViewColumn Header="Observed" DisplayMemberBinding="{Binding ObservedAtText}" Width="185" />
+                            <GridViewColumn Header="Status" DisplayMemberBinding="{Binding StatusText}" Width="130" />
                             <GridViewColumn Header="Flight" DisplayMemberBinding="{Binding Flight}" Width="140" />
                             <GridViewColumn Header="Aircraft" DisplayMemberBinding="{Binding AircraftDescription}" Width="320" />
                             <GridViewColumn Header="Altitude" DisplayMemberBinding="{Binding AltitudeText}" Width="120" />
@@ -76,7 +77,7 @@
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding StatusText}" Value="Stale">
+                                <DataTrigger Binding="{Binding IsStale}" Value="True">
                                     <Setter Property="Opacity" Value="0.55" />
                                 </DataTrigger>
                             </Style.Triggers>
@@ -85,7 +86,7 @@
                     <ListView.View>
                         <GridView>
                             <GridViewColumn Header="Observed" DisplayMemberBinding="{Binding ObservedAtText}" Width="185" />
-                            <GridViewColumn Header="Status" DisplayMemberBinding="{Binding StatusText}" Width="75" />
+                            <GridViewColumn Header="Status" DisplayMemberBinding="{Binding StatusText}" Width="130" />
                             <GridViewColumn Header="Flight" DisplayMemberBinding="{Binding Flight}" Width="140" />
                             <GridViewColumn Header="Aircraft" DisplayMemberBinding="{Binding AircraftDescription}" Width="320" />
                             <GridViewColumn Header="Altitude" DisplayMemberBinding="{Binding AltitudeText}" Width="120" />
