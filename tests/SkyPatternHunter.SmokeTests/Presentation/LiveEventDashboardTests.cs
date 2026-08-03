@@ -1,6 +1,10 @@
 using SkyPatternHunter.Domain.Models;
+using SkyPatternHunter.Infrastructure.AdsB;
 using SkyPatternHunter.Infrastructure.Events;
 using SkyPatternHunter.Presentation;
+using System.Diagnostics;
+using System.Net;
+using System.Net.Http;
 
 namespace SkyPatternHunter.SmokeTests.Presentation;
 
@@ -143,6 +147,7 @@ public class LiveEventDashboardTests
             Assert.Equal(new[] { "ACTIVE", "STALE1" }, snapshot.TodayEvents.Select(item => item.AircraftHex));
             Assert.Equal("Active", snapshot.TodayEvents[0].StatusText);
             Assert.Equal("Stale", snapshot.TodayEvents[1].StatusText);
+            Assert.Equal("Unknown", snapshot.TodayEvents[1].AltitudeTrendText);
         }
         finally
         {
@@ -185,6 +190,66 @@ public class LiveEventDashboardTests
             {
                 Directory.Delete(tempDirectory, recursive: true);
             }
+        }
+    }
+
+    [Fact]
+    public async Task RefreshAsync_ReturnsQuickly_WhenHexDbLookupIsSlow()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            var journal = new OverheadEventJournal(tempDirectory);
+            journal.Append(new OverheadEvent(
+                new Aircraft("AAAA01", "FLT1", 1, 1, 30000, 90, 100, null),
+                DateTimeOffset.Parse("2026-07-29T12:00:00+00:00")));
+            journal.Append(new OverheadEvent(
+                new Aircraft("AAAA01", "FLT1", 1, 1, 30100, 90, 100, null),
+                DateTimeOffset.Parse("2026-07-29T12:00:30+00:00")));
+
+            using var httpClient = new HttpClient(new DelayedSuccessHandler(TimeSpan.FromSeconds(10)));
+            var dashboard = new LiveEventDashboard(
+                journal,
+                staleAfter: TimeSpan.FromMinutes(10),
+                clock: () => DateTimeOffset.Parse("2026-07-29T12:02:00+00:00"),
+                aircraftClient: new HexDbAircraftClient(httpClient));
+
+            var stopwatch = Stopwatch.StartNew();
+            var snapshot = await dashboard.RefreshAsync();
+            stopwatch.Stop();
+
+            Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(1), $"RefreshAsync took {stopwatch.Elapsed}.");
+            Assert.Single(snapshot.ActiveEvents);
+            Assert.Equal("Ascending", snapshot.ActiveEvents[0].AltitudeTrendText);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
+        }
+    }
+
+    private sealed class DelayedSuccessHandler : HttpMessageHandler
+    {
+        private readonly TimeSpan _delay;
+
+        public DelayedSuccessHandler(TimeSpan delay)
+        {
+            _delay = delay;
+        }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await Task.Delay(_delay, cancellationToken);
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{}")
+            };
         }
     }
 }
