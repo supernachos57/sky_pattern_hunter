@@ -14,18 +14,30 @@ public sealed record LiveEventDashboardSnapshot(
 
 public sealed class LiveEventDashboard
 {
+    private const double DirectionDeadbandMiles = 0.1;
+
     private readonly OverheadEventJournal _journal;
     private readonly HexDbAircraftClient? _aircraftClient;
     private readonly TimeSpan _staleAfter;
     private readonly Func<DateTimeOffset> _clock;
+    private readonly double _userLatitude;
+    private readonly double _userLongitude;
     private readonly ConcurrentDictionary<string, LookupState> _detailsLookupByHex = new(StringComparer.OrdinalIgnoreCase);
 
-    public LiveEventDashboard(OverheadEventJournal journal, TimeSpan? staleAfter = null, Func<DateTimeOffset>? clock = null, HexDbAircraftClient? aircraftClient = null)
+    public LiveEventDashboard(
+        OverheadEventJournal journal,
+        TimeSpan? staleAfter = null,
+        Func<DateTimeOffset>? clock = null,
+        HexDbAircraftClient? aircraftClient = null,
+        double userLatitude = 0,
+        double userLongitude = 0)
     {
         _journal = journal;
         _aircraftClient = aircraftClient;
         _staleAfter = staleAfter ?? TimeSpan.FromSeconds(60);
         _clock = clock ?? (() => DateTimeOffset.UtcNow);
+        _userLatitude = userLatitude;
+        _userLongitude = userLongitude;
     }
 
     public LiveEventDashboardSnapshot Refresh()
@@ -103,6 +115,7 @@ public sealed class LiveEventDashboard
         var now = _clock();
         var today = now.ToLocalTime().Date;
         var trendByAircraftHex = BuildAltitudeTrendByAircraft(events);
+        var directionByAircraftHex = BuildDirectionByAircraft(events, _userLatitude, _userLongitude);
         var latestByAircraft = events
             .GroupBy(item => item.Aircraft.Hex, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.MaxBy(item => item.ObservedAt)!)
@@ -113,12 +126,12 @@ public sealed class LiveEventDashboard
         var activeAircraft = todayEvents
             .Where(item => now - item.ObservedAt <= _staleAfter)
             .OrderByDescending(item => item.ObservedAt)
-            .Select(item => RecentEventViewModel.FromEvent(item, isStale: false, GetTrend(item, isStale: false), GetDetails(item)))
+            .Select(item => RecentEventViewModel.FromEvent(item, isStale: false, GetTrend(item, isStale: false), GetDetails(item), GetDirection(item, isStale: false)))
             .ToArray();
         var staleAircraft = todayEvents
             .Where(item => now - item.ObservedAt > _staleAfter)
             .OrderByDescending(item => item.ObservedAt)
-            .Select(item => RecentEventViewModel.FromEvent(item, isStale: true, GetTrend(item, isStale: true), GetDetails(item)))
+            .Select(item => RecentEventViewModel.FromEvent(item, isStale: true, GetTrend(item, isStale: true), GetDetails(item), GetDirection(item, isStale: true)))
             .ToArray();
         var latestEvent = todayEvents.MaxBy(item => item.ObservedAt);
 
@@ -144,6 +157,16 @@ public sealed class LiveEventDashboard
             }
 
             return trendByAircraftHex.GetValueOrDefault(overheadEvent.Aircraft.Hex) ?? "Level";
+        }
+
+        string GetDirection(SkyPatternHunter.Domain.Models.OverheadEvent overheadEvent, bool isStale)
+        {
+            if (isStale)
+            {
+                return "Unknown";
+            }
+
+            return directionByAircraftHex.GetValueOrDefault(overheadEvent.Aircraft.Hex) ?? "Unknown";
         }
     }
 
@@ -177,6 +200,68 @@ public sealed class LiveEventDashboard
                     return "Level";
                 },
                 StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static Dictionary<string, string> BuildDirectionByAircraft(
+        IReadOnlyList<SkyPatternHunter.Domain.Models.OverheadEvent> events,
+        double userLatitude,
+        double userLongitude)
+    {
+        return events
+            .GroupBy(item => item.Aircraft.Hex, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group =>
+                {
+                    var ordered = group.OrderByDescending(item => item.ObservedAt).Take(2).ToArray();
+                    if (ordered.Length < 2)
+                    {
+                        return "Unknown";
+                    }
+
+                    var latest = ordered[0].Aircraft;
+                    var previous = ordered[1].Aircraft;
+                    var latestDistance = CalculateDistanceMiles(userLatitude, userLongitude, latest.Latitude, latest.Longitude);
+                    var previousDistance = CalculateDistanceMiles(userLatitude, userLongitude, previous.Latitude, previous.Longitude);
+                    var distanceDelta = latestDistance - previousDistance;
+
+                    if (distanceDelta <= -DirectionDeadbandMiles)
+                    {
+                        return "Coming";
+                    }
+
+                    if (distanceDelta >= DirectionDeadbandMiles)
+                    {
+                        return "Going";
+                    }
+
+                    return "Holding";
+                },
+                StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static double CalculateDistanceMiles(double startLatitude, double startLongitude, double endLatitude, double endLongitude)
+    {
+        const double EarthRadiusMiles = 3958.7613;
+
+        var startLatitudeRadians = DegreesToRadians(startLatitude);
+        var endLatitudeRadians = DegreesToRadians(endLatitude);
+        var latitudeDeltaRadians = DegreesToRadians(endLatitude - startLatitude);
+        var longitudeDeltaRadians = DegreesToRadians(endLongitude - startLongitude);
+
+        var sinLatitude = Math.Sin(latitudeDeltaRadians / 2);
+        var sinLongitude = Math.Sin(longitudeDeltaRadians / 2);
+
+        var a = (sinLatitude * sinLatitude) +
+                (Math.Cos(startLatitudeRadians) * Math.Cos(endLatitudeRadians) * sinLongitude * sinLongitude);
+        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+
+        return EarthRadiusMiles * c;
+    }
+
+    private static double DegreesToRadians(double degrees)
+    {
+        return degrees * (Math.PI / 180d);
     }
 
     private sealed record LookupState(bool IsCompleted, HexDbAircraft? Details)
