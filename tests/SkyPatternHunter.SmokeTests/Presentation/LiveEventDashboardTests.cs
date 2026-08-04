@@ -130,16 +130,24 @@ public class LiveEventDashboardTests
         {
             var journal = new OverheadEventJournal(tempDirectory);
             journal.Append(new OverheadEvent(
-                new Aircraft("STALE1", "OLD1", 1, 1, 30000, 90, 400, null),
+                new Aircraft("STALE1", "OLD1", 28.44365, -81.08718, 30000, 90, 400, null),
+                DateTimeOffset.Parse("2026-07-29T11:59:40+00:00")));
+            journal.Append(new OverheadEvent(
+                new Aircraft("STALE1", "OLD1", 28.43365, -81.08718, 30000, 90, 400, null),
                 DateTimeOffset.Parse("2026-07-29T12:00:00+00:00")));
             journal.Append(new OverheadEvent(
-                new Aircraft("ACTIVE", "NEW1", 1, 1, 30000, 90, 400, null),
+                new Aircraft("ACTIVE", "NEW1", 28.46365, -81.08718, 30000, 90, 400, null),
+                DateTimeOffset.Parse("2026-07-29T12:01:20+00:00")));
+            journal.Append(new OverheadEvent(
+                new Aircraft("ACTIVE", "NEW1", 28.45865, -81.08718, 30000, 90, 400, null),
                 DateTimeOffset.Parse("2026-07-29T12:01:30+00:00")));
 
             var snapshot = new LiveEventDashboard(
                 journal,
                 staleAfter: TimeSpan.FromSeconds(60),
-                clock: () => DateTimeOffset.Parse("2026-07-29T12:02:00+00:00")).Refresh();
+                clock: () => DateTimeOffset.Parse("2026-07-29T12:02:00+00:00"),
+                userLatitude: 28.45365,
+                userLongitude: -81.08718).Refresh();
 
             Assert.Equal(1, snapshot.ActiveAircraftCount);
             Assert.Single(snapshot.ActiveEvents);
@@ -148,7 +156,8 @@ public class LiveEventDashboardTests
             Assert.Equal("Active", snapshot.TodayEvents[0].StatusText);
             Assert.Equal("Stale", snapshot.TodayEvents[1].StatusText);
             Assert.Equal("Unknown", snapshot.TodayEvents[1].AltitudeTrendText);
-            Assert.Equal("Unknown", snapshot.TodayEvents[1].DirectionText);
+            Assert.Equal("Coming", snapshot.TodayEvents[0].DirectionText);
+            Assert.Equal("Going", snapshot.TodayEvents[1].DirectionText);
         }
         finally
         {
@@ -237,7 +246,7 @@ public class LiveEventDashboardTests
     }
 
     [Fact]
-    public void Refresh_ClassifiesDirectionAsUnknown_WhenMovementIsMinimal()
+    public void Refresh_KeepsLastDirection_WhenLatestMovementIsMinimal()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDirectory);
@@ -246,10 +255,13 @@ public class LiveEventDashboardTests
         {
             var journal = new OverheadEventJournal(tempDirectory);
             journal.Append(new OverheadEvent(
-                new Aircraft("HOLD01", "TEST1", 28.45370, -81.08718, 30000, 90, 100, null),
+                new Aircraft("HOLD01", "TEST1", 28.44365, -81.08718, 30000, 90, 100, null),
                 DateTimeOffset.Parse("2026-07-29T12:00:00+00:00")));
             journal.Append(new OverheadEvent(
-                new Aircraft("HOLD01", "TEST1", 28.45369, -81.08718, 30050, 90, 100, null),
+                new Aircraft("HOLD01", "TEST1", 28.43365, -81.08718, 30050, 90, 100, null),
+                DateTimeOffset.Parse("2026-07-29T12:00:30+00:00")));
+            journal.Append(new OverheadEvent(
+                new Aircraft("HOLD01", "TEST1", 28.43366, -81.08718, 30050, 90, 100, null),
                 DateTimeOffset.Parse("2026-07-29T12:01:00+00:00")));
 
             var snapshot = new LiveEventDashboard(
@@ -259,7 +271,42 @@ public class LiveEventDashboardTests
                 userLatitude: 28.45365,
                 userLongitude: -81.08718).Refresh();
 
-            Assert.Equal("Unknown", snapshot.TodayEvents.Single(item => item.AircraftHex == "HOLD01").DirectionText);
+            Assert.Equal("Going", snapshot.TodayEvents.Single(item => item.AircraftHex == "HOLD01").DirectionText);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Refresh_InfersDirectionFromTrack_WhenOnlySingleObservationExists()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            var journal = new OverheadEventJournal(tempDirectory);
+            journal.Append(new OverheadEvent(
+                new Aircraft("SINGLEC", "ONE1", 28.46365, -81.08718, 30000, 180, 100, null),
+                DateTimeOffset.Parse("2026-07-29T12:00:00+00:00")));
+            journal.Append(new OverheadEvent(
+                new Aircraft("SINGLEG", "ONE2", 28.46365, -81.08718, 30000, 0, 100, null),
+                DateTimeOffset.Parse("2026-07-29T12:00:30+00:00")));
+
+            var snapshot = new LiveEventDashboard(
+                journal,
+                staleAfter: TimeSpan.FromMinutes(10),
+                clock: () => DateTimeOffset.Parse("2026-07-29T12:02:00+00:00"),
+                userLatitude: 28.45365,
+                userLongitude: -81.08718).Refresh();
+
+            Assert.Equal("Coming", snapshot.TodayEvents.Single(item => item.AircraftHex == "SINGLEC").DirectionText);
+            Assert.Equal("Going", snapshot.TodayEvents.Single(item => item.AircraftHex == "SINGLEG").DirectionText);
         }
         finally
         {

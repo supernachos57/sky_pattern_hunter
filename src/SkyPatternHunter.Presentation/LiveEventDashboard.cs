@@ -161,12 +161,8 @@ public sealed class LiveEventDashboard
 
         string GetDirection(SkyPatternHunter.Domain.Models.OverheadEvent overheadEvent, bool isStale)
         {
-            if (isStale)
-            {
-                return "Unknown";
-            }
-
-            return directionByAircraftHex.GetValueOrDefault(overheadEvent.Aircraft.Hex) ?? "Unknown";
+            _ = isStale;
+            return directionByAircraftHex.GetValueOrDefault(overheadEvent.Aircraft.Hex) ?? "Coming";
         }
     }
 
@@ -213,31 +209,45 @@ public sealed class LiveEventDashboard
                 group => group.Key,
                 group =>
                 {
-                    var ordered = group.OrderByDescending(item => item.ObservedAt).Take(2).ToArray();
-                    if (ordered.Length < 2)
+                    var ordered = group.OrderByDescending(item => item.ObservedAt).ToArray();
+
+                    for (var index = 0; index < ordered.Length - 1; index++)
                     {
-                        return "Unknown";
+                        var latest = ordered[index].Aircraft;
+                        var previous = ordered[index + 1].Aircraft;
+                        var latestDistance = CalculateDistanceMiles(userLatitude, userLongitude, latest.Latitude, latest.Longitude);
+                        var previousDistance = CalculateDistanceMiles(userLatitude, userLongitude, previous.Latitude, previous.Longitude);
+                        var distanceDelta = latestDistance - previousDistance;
+
+                        if (distanceDelta <= -DirectionDeadbandMiles)
+                        {
+                            return "Coming";
+                        }
+
+                        if (distanceDelta >= DirectionDeadbandMiles)
+                        {
+                            return "Going";
+                        }
                     }
 
-                    var latest = ordered[0].Aircraft;
-                    var previous = ordered[1].Aircraft;
-                    var latestDistance = CalculateDistanceMiles(userLatitude, userLongitude, latest.Latitude, latest.Longitude);
-                    var previousDistance = CalculateDistanceMiles(userLatitude, userLongitude, previous.Latitude, previous.Longitude);
-                    var distanceDelta = latestDistance - previousDistance;
-
-                    if (distanceDelta <= -DirectionDeadbandMiles)
-                    {
-                        return "Coming";
-                    }
-
-                    if (distanceDelta >= DirectionDeadbandMiles)
-                    {
-                        return "Going";
-                    }
-
-                    return "Unknown";
+                    return InferDirectionFromTrack(ordered[0].Aircraft, userLatitude, userLongitude);
                 },
                 StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string InferDirectionFromTrack(
+        SkyPatternHunter.Domain.Models.Aircraft aircraft,
+        double userLatitude,
+        double userLongitude)
+    {
+        var bearingToUser = CalculateInitialBearingDegrees(
+            aircraft.Latitude,
+            aircraft.Longitude,
+            userLatitude,
+            userLongitude);
+        var headingDelta = NormalizeSignedDegrees(aircraft.Track - bearingToUser);
+
+        return Math.Abs(headingDelta) <= 90d ? "Coming" : "Going";
     }
 
     private static double CalculateDistanceMiles(double startLatitude, double startLongitude, double endLatitude, double endLongitude)
@@ -262,6 +272,37 @@ public sealed class LiveEventDashboard
     private static double DegreesToRadians(double degrees)
     {
         return degrees * (Math.PI / 180d);
+    }
+
+    private static double RadiansToDegrees(double radians)
+    {
+        return radians * (180d / Math.PI);
+    }
+
+    private static double CalculateInitialBearingDegrees(double startLatitude, double startLongitude, double endLatitude, double endLongitude)
+    {
+        var startLatitudeRadians = DegreesToRadians(startLatitude);
+        var endLatitudeRadians = DegreesToRadians(endLatitude);
+        var longitudeDeltaRadians = DegreesToRadians(endLongitude - startLongitude);
+
+        var y = Math.Sin(longitudeDeltaRadians) * Math.Cos(endLatitudeRadians);
+        var x = (Math.Cos(startLatitudeRadians) * Math.Sin(endLatitudeRadians)) -
+                (Math.Sin(startLatitudeRadians) * Math.Cos(endLatitudeRadians) * Math.Cos(longitudeDeltaRadians));
+        var bearingDegrees = RadiansToDegrees(Math.Atan2(y, x));
+
+        return NormalizeUnsignedDegrees(bearingDegrees);
+    }
+
+    private static double NormalizeUnsignedDegrees(double degrees)
+    {
+        var normalized = degrees % 360d;
+        return normalized < 0d ? normalized + 360d : normalized;
+    }
+
+    private static double NormalizeSignedDegrees(double degrees)
+    {
+        var normalized = NormalizeUnsignedDegrees(degrees);
+        return normalized > 180d ? normalized - 360d : normalized;
     }
 
     private sealed record LookupState(bool IsCompleted, HexDbAircraft? Details)
