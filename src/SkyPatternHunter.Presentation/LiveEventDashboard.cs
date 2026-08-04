@@ -235,7 +235,7 @@ public sealed class LiveEventDashboard
                         return "Going";
                     }
 
-                    return "Holding";
+                    return "Unknown";
                 },
                 StringComparer.OrdinalIgnoreCase);
     }
