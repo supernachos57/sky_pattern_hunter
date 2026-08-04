@@ -18,14 +18,24 @@ public sealed class LiveEventDashboard
     private readonly HexDbAircraftClient? _aircraftClient;
     private readonly TimeSpan _staleAfter;
     private readonly Func<DateTimeOffset> _clock;
+    private readonly double _userLatitude;
+    private readonly double _userLongitude;
     private readonly ConcurrentDictionary<string, LookupState> _detailsLookupByHex = new(StringComparer.OrdinalIgnoreCase);
 
-    public LiveEventDashboard(OverheadEventJournal journal, TimeSpan? staleAfter = null, Func<DateTimeOffset>? clock = null, HexDbAircraftClient? aircraftClient = null)
+    public LiveEventDashboard(
+        OverheadEventJournal journal,
+        TimeSpan? staleAfter = null,
+        Func<DateTimeOffset>? clock = null,
+        HexDbAircraftClient? aircraftClient = null,
+        double userLatitude = 0,
+        double userLongitude = 0)
     {
         _journal = journal;
         _aircraftClient = aircraftClient;
         _staleAfter = staleAfter ?? TimeSpan.FromSeconds(60);
         _clock = clock ?? (() => DateTimeOffset.UtcNow);
+        _userLatitude = userLatitude;
+        _userLongitude = userLongitude;
     }
 
     public LiveEventDashboardSnapshot Refresh()
@@ -113,12 +123,12 @@ public sealed class LiveEventDashboard
         var activeAircraft = todayEvents
             .Where(item => now - item.ObservedAt <= _staleAfter)
             .OrderByDescending(item => item.ObservedAt)
-            .Select(item => RecentEventViewModel.FromEvent(item, isStale: false, GetTrend(item, isStale: false), GetDetails(item)))
+            .Select(item => RecentEventViewModel.FromEvent(item, isStale: false, GetTrend(item, isStale: false), GetLookDirection(item), GetDetails(item)))
             .ToArray();
         var staleAircraft = todayEvents
             .Where(item => now - item.ObservedAt > _staleAfter)
             .OrderByDescending(item => item.ObservedAt)
-            .Select(item => RecentEventViewModel.FromEvent(item, isStale: true, GetTrend(item, isStale: true), GetDetails(item)))
+            .Select(item => RecentEventViewModel.FromEvent(item, isStale: true, GetTrend(item, isStale: true), GetLookDirection(item), GetDetails(item)))
             .ToArray();
         var latestEvent = todayEvents.MaxBy(item => item.ObservedAt);
 
@@ -127,7 +137,7 @@ public sealed class LiveEventDashboard
             latestEvent?.Aircraft.Hex ?? "None",
             latestEvent is null
                 ? "No events yet"
-                : RecentEventViewModel.FromEvent(latestEvent, isStale: false).ObservedAtText,
+                : RecentEventViewModel.FromEvent(latestEvent, isStale: false, GetTrend(latestEvent, isStale: false), GetLookDirection(latestEvent)).ObservedAtText,
             activeAircraft,
             activeAircraft.Concat(staleAircraft).ToArray());
 
@@ -144,6 +154,15 @@ public sealed class LiveEventDashboard
             }
 
             return trendByAircraftHex.GetValueOrDefault(overheadEvent.Aircraft.Hex) ?? "Level";
+        }
+
+        string GetLookDirection(SkyPatternHunter.Domain.Models.OverheadEvent overheadEvent)
+        {
+            return LookDirectionCalculator.Calculate(
+                _userLatitude,
+                _userLongitude,
+                overheadEvent.Aircraft.Latitude,
+                overheadEvent.Aircraft.Longitude);
         }
     }
 
@@ -178,7 +197,6 @@ public sealed class LiveEventDashboard
                 },
                 StringComparer.OrdinalIgnoreCase);
     }
-
     private sealed record LookupState(bool IsCompleted, HexDbAircraft? Details)
     {
         public static LookupState Pending { get; } = new(false, null);

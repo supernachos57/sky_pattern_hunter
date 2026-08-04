@@ -194,6 +194,39 @@ public class LiveEventDashboardTests
     }
 
     [Fact]
+    public void Refresh_SetsLookDirection_FromConfiguredUserPosition()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            var journal = new OverheadEventJournal(tempDirectory);
+            journal.Append(new OverheadEvent(
+                new Aircraft("LOOK01", "FLT1", 28.45365, -80.98718, 30000, 90, 100, null),
+                DateTimeOffset.Parse("2026-07-29T12:00:00+00:00")));
+
+            var snapshot = new LiveEventDashboard(
+                journal,
+                staleAfter: TimeSpan.FromMinutes(10),
+                clock: () => DateTimeOffset.Parse("2026-07-29T12:02:00+00:00"),
+                userLatitude: 28.45365,
+                userLongitude: -81.08718).Refresh();
+
+            Assert.Single(snapshot.TodayEvents);
+            Assert.Equal("East", snapshot.TodayEvents[0].LookDirectionText);
+            Assert.Equal("East", snapshot.ActiveEvents[0].LookDirectionText);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task RefreshAsync_ReturnsQuickly_WhenHexDbLookupIsSlow()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
@@ -203,18 +236,17 @@ public class LiveEventDashboardTests
         {
             var journal = new OverheadEventJournal(tempDirectory);
             journal.Append(new OverheadEvent(
-                new Aircraft("AAAA01", "FLT1", 1, 1, 30000, 90, 100, null),
+                new Aircraft("AAAA01", "FLT1", 28.45365, -80.98718, 30000, 90, 100, null),
                 DateTimeOffset.Parse("2026-07-29T12:00:00+00:00")));
-            journal.Append(new OverheadEvent(
-                new Aircraft("AAAA01", "FLT1", 1, 1, 30100, 90, 100, null),
-                DateTimeOffset.Parse("2026-07-29T12:00:30+00:00")));
 
             using var httpClient = new HttpClient(new DelayedSuccessHandler(TimeSpan.FromSeconds(10)));
             var dashboard = new LiveEventDashboard(
                 journal,
                 staleAfter: TimeSpan.FromMinutes(10),
                 clock: () => DateTimeOffset.Parse("2026-07-29T12:02:00+00:00"),
-                aircraftClient: new HexDbAircraftClient(httpClient));
+                aircraftClient: new HexDbAircraftClient(httpClient),
+                userLatitude: 28.45365,
+                userLongitude: -81.08718);
 
             var stopwatch = Stopwatch.StartNew();
             var snapshot = await dashboard.RefreshAsync();
@@ -222,7 +254,41 @@ public class LiveEventDashboardTests
 
             Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(1), $"RefreshAsync took {stopwatch.Elapsed}.");
             Assert.Single(snapshot.ActiveEvents);
-            Assert.Equal("Ascending", snapshot.ActiveEvents[0].AltitudeTrendText);
+            Assert.Equal("East", snapshot.ActiveEvents[0].LookDirectionText);
+            Assert.Equal("Level", snapshot.ActiveEvents[0].AltitudeTrendText);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Refresh_SetsIntermediateLookDirection_FromConfiguredUserPosition()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            var journal = new OverheadEventJournal(tempDirectory);
+            journal.Append(new OverheadEvent(
+                new Aircraft("LOOK02", "FLT2", 28.55365, -80.98718, 30000, 90, 100, null),
+                DateTimeOffset.Parse("2026-07-29T12:00:00+00:00")));
+
+            var snapshot = new LiveEventDashboard(
+                journal,
+                staleAfter: TimeSpan.FromMinutes(10),
+                clock: () => DateTimeOffset.Parse("2026-07-29T12:02:00+00:00"),
+                userLatitude: 28.45365,
+                userLongitude: -81.08718).Refresh();
+
+            Assert.Single(snapshot.TodayEvents);
+            Assert.Equal("North-East", snapshot.TodayEvents[0].LookDirectionText);
+            Assert.Equal("North-East", snapshot.ActiveEvents[0].LookDirectionText);
         }
         finally
         {
