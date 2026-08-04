@@ -4,15 +4,26 @@ using SkyPatternHunter.Infrastructure.AdsB;
 
 namespace SkyPatternHunter.Presentation;
 
-public sealed record RecentEventViewModel(string AircraftHex, string? Flight, string AircraftDescription, string ObservedAtText, string UtcOffsetText, string StatusText, bool IsStale, string AltitudeText, string SpeedText)
+public sealed record RecentEventViewModel(string AircraftHex, string? Flight, string AircraftDescription, string ObservedAtText, string UtcOffsetText, string StatusText, bool IsStale, string AltitudeText, string AltitudeTrendText, string SpeedText, string MphText, string LookDirectionText)
 {
-    public static RecentEventViewModel FromEvent(OverheadEvent overheadEvent, string statusText, bool isStale, HexDbAircraft? aircraftDetails = null)
+    public static RecentEventViewModel FromEvent(
+        OverheadEvent overheadEvent,
+        string statusText,
+        bool isStale,
+        string? altitudeTrendText = null,
+        string? lookDirectionText = null,
+        HexDbAircraft? aircraftDetails = null)
     {
         var localObservedAt = overheadEvent.ObservedAt.ToLocalTime();
         var speedText = overheadEvent.Aircraft.Speed > 0
+            ? $"{overheadEvent.Aircraft.Speed} kt"
+            : "Unknown";
+        var mphText = overheadEvent.Aircraft.Speed > 0
             ? $"{overheadEvent.Aircraft.Speed * 1.15078:0} mph"
             : "Unknown";
         var aircraftDescription = FormatAircraftDescription(aircraftDetails);
+        var trendText = altitudeTrendText ?? "Level";
+        var lookText = lookDirectionText ?? "Unknown";
 
         return new RecentEventViewModel(
             overheadEvent.Aircraft.Hex,
@@ -23,7 +34,10 @@ public sealed record RecentEventViewModel(string AircraftHex, string? Flight, st
             statusText,
             isStale,
             $"{overheadEvent.Aircraft.Altitude} ft",
-            speedText);
+            trendText,
+            speedText,
+            mphText,
+            lookText);
     }
 
     private static string FormatAircraftDescription(HexDbAircraft? aircraftDetails)

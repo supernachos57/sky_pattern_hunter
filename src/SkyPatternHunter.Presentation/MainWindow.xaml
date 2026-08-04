@@ -65,8 +65,11 @@
                             <GridViewColumn Header="Status" DisplayMemberBinding="{Binding StatusText}" Width="130" />
                             <GridViewColumn Header="Flight" DisplayMemberBinding="{Binding Flight}" Width="140" />
                             <GridViewColumn Header="Aircraft" DisplayMemberBinding="{Binding AircraftDescription}" Width="320" />
+                            <GridViewColumn Header="Look Toward" DisplayMemberBinding="{Binding LookDirectionText}" Width="140" />
                             <GridViewColumn Header="Altitude" DisplayMemberBinding="{Binding AltitudeText}" Width="120" />
-                            <GridViewColumn Header="Speed (mph)" DisplayMemberBinding="{Binding SpeedText}" Width="100" />
+                            <GridViewColumn Header="Vertical" DisplayMemberBinding="{Binding AltitudeTrendText}" Width="110" />
+                            <GridViewColumn Header="Speed" DisplayMemberBinding="{Binding SpeedText}" Width="90" />
+                            <GridViewColumn Header="MPH" DisplayMemberBinding="{Binding MphText}" Width="90" />
                         </GridView>
                     </ListView.View>
                 </ListView>
@@ -88,8 +91,11 @@
                             <GridViewColumn Header="Status" DisplayMemberBinding="{Binding StatusText}" Width="130" />
                             <GridViewColumn Header="Flight" DisplayMemberBinding="{Binding Flight}" Width="140" />
                             <GridViewColumn Header="Aircraft" DisplayMemberBinding="{Binding AircraftDescription}" Width="320" />
+                            <GridViewColumn Header="Look Toward" DisplayMemberBinding="{Binding LookDirectionText}" Width="140" />
                             <GridViewColumn Header="Altitude" DisplayMemberBinding="{Binding AltitudeText}" Width="120" />
-                            <GridViewColumn Header="Speed (mph)" DisplayMemberBinding="{Binding SpeedText}" Width="100" />
+                            <GridViewColumn Header="Vertical" DisplayMemberBinding="{Binding AltitudeTrendText}" Width="110" />
+                            <GridViewColumn Header="Speed" DisplayMemberBinding="{Binding SpeedText}" Width="90" />
+                            <GridViewColumn Header="MPH" DisplayMemberBinding="{Binding MphText}" Width="90" />
                         </GridView>
                     </ListView.View>
                 </ListView>
