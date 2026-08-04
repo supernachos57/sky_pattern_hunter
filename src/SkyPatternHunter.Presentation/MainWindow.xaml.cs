@@ -70,7 +70,9 @@ public partial class MainWindow : INotifyPropertyChanged
         _dashboard = new LiveEventDashboard(
             journal,
             TimeSpan.FromSeconds(_settings.DashboardStaleAfterSeconds),
-            aircraftClient: new HexDbAircraftClient(_hexDbHttpClient));
+            aircraftClient: new HexDbAircraftClient(_hexDbHttpClient),
+            userLatitude: _settings.UserLatitude,
+            userLongitude: _settings.UserLongitude);
         _logger = new FileLogger(_settings.LogFilePath);
 
         InitializeComponent();
