@@ -116,6 +116,7 @@ public sealed class LiveEventDashboard
         var today = now.ToLocalTime().Date;
         var trendByAircraftHex = BuildAltitudeTrendByAircraft(events);
         var directionByAircraftHex = BuildDirectionByAircraft(events, _userLatitude, _userLongitude);
+        var cardinalDirectionByAircraftHex = BuildCardinalDirectionByAircraft(events);
         var latestByAircraft = events
             .GroupBy(item => item.Aircraft.Hex, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.MaxBy(item => item.ObservedAt)!)
@@ -126,12 +127,12 @@ public sealed class LiveEventDashboard
         var activeAircraft = todayEvents
             .Where(item => now - item.ObservedAt <= _staleAfter)
             .OrderByDescending(item => item.ObservedAt)
-            .Select(item => RecentEventViewModel.FromEvent(item, isStale: false, GetTrend(item, isStale: false), GetDetails(item), GetDirection(item, isStale: false)))
+            .Select(item => RecentEventViewModel.FromEvent(item, isStale: false, GetTrend(item, isStale: false), GetDetails(item), GetDirection(item, isStale: false), GetCardinalDirection(item)))
             .ToArray();
         var staleAircraft = todayEvents
             .Where(item => now - item.ObservedAt > _staleAfter)
             .OrderByDescending(item => item.ObservedAt)
-            .Select(item => RecentEventViewModel.FromEvent(item, isStale: true, GetTrend(item, isStale: true), GetDetails(item), GetDirection(item, isStale: true)))
+            .Select(item => RecentEventViewModel.FromEvent(item, isStale: true, GetTrend(item, isStale: true), GetDetails(item), GetDirection(item, isStale: true), GetCardinalDirection(item)))
             .ToArray();
         var latestEvent = todayEvents.MaxBy(item => item.ObservedAt);
 
@@ -163,6 +164,11 @@ public sealed class LiveEventDashboard
         {
             _ = isStale;
             return directionByAircraftHex.GetValueOrDefault(overheadEvent.Aircraft.Hex) ?? "Coming";
+        }
+
+        string GetCardinalDirection(SkyPatternHunter.Domain.Models.OverheadEvent overheadEvent)
+        {
+            return cardinalDirectionByAircraftHex.GetValueOrDefault(overheadEvent.Aircraft.Hex) ?? "Unknown";
         }
     }
 
@@ -233,6 +239,45 @@ public sealed class LiveEventDashboard
                     return InferDirectionFromTrack(ordered[0].Aircraft, userLatitude, userLongitude);
                 },
                 StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static Dictionary<string, string> BuildCardinalDirectionByAircraft(IReadOnlyList<SkyPatternHunter.Domain.Models.OverheadEvent> events)
+    {
+        return events
+            .GroupBy(item => item.Aircraft.Hex, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group =>
+                {
+                    var ordered = group.OrderByDescending(item => item.ObservedAt).ToArray();
+
+                    // Keep the most recent usable heading so stale aircraft retain their last known in-range direction.
+                    foreach (var overheadEvent in ordered)
+                    {
+                        if (overheadEvent.Aircraft.Speed <= 0)
+                        {
+                            continue;
+                        }
+
+                        return ConvertTrackToCompassDirection(overheadEvent.Aircraft.Track);
+                    }
+
+                    return "Unknown";
+                },
+                StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string ConvertTrackToCompassDirection(int track)
+    {
+        var directions = new[]
+        {
+            "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+            "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"
+        };
+
+        var normalizedTrack = NormalizeUnsignedDegrees(track);
+        var index = (int)Math.Round(normalizedTrack / 22.5d, MidpointRounding.AwayFromZero) % directions.Length;
+        return directions[index];
     }
 
     private static string InferDirectionFromTrack(

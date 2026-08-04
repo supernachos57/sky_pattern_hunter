@@ -4,9 +4,9 @@ using SkyPatternHunter.Infrastructure.AdsB;
 
 namespace SkyPatternHunter.Presentation;
 
-public sealed record RecentEventViewModel(string AircraftHex, string? Flight, string AircraftDescription, string ObservedAtText, string UtcOffsetText, string StatusText, string AltitudeText, string AltitudeTrendText, string DirectionText, string SpeedText, string MphText)
+public sealed record RecentEventViewModel(string AircraftHex, string? Flight, string AircraftDescription, string ObservedAtText, string UtcOffsetText, string StatusText, string AltitudeText, string AltitudeTrendText, string DirectionText, string CardinalDirectionText, string SpeedText, string MphText)
 {
-    public static RecentEventViewModel FromEvent(OverheadEvent overheadEvent, bool isStale, string? altitudeTrendText = null, HexDbAircraft? aircraftDetails = null, string? directionText = null)
+    public static RecentEventViewModel FromEvent(OverheadEvent overheadEvent, bool isStale, string? altitudeTrendText = null, HexDbAircraft? aircraftDetails = null, string? directionText = null, string? cardinalDirectionText = null)
     {
         var localObservedAt = overheadEvent.ObservedAt.ToLocalTime();
         var speedText = overheadEvent.Aircraft.Speed > 0 ? $"{overheadEvent.Aircraft.Speed} kt" : "Unknown";
@@ -16,6 +16,7 @@ public sealed record RecentEventViewModel(string AircraftHex, string? Flight, st
         var aircraftDescription = FormatAircraftDescription(aircraftDetails);
         var trendText = altitudeTrendText ?? "Level";
         var movementDirection = directionText ?? "Unknown";
+        var compassDirection = cardinalDirectionText ?? "Unknown";
 
         return new RecentEventViewModel(
             overheadEvent.Aircraft.Hex,
@@ -27,6 +28,7 @@ public sealed record RecentEventViewModel(string AircraftHex, string? Flight, st
             $"{overheadEvent.Aircraft.Altitude} ft",
             trendText,
             movementDirection,
+                compassDirection,
             speedText,
             mphText);
     }

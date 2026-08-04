@@ -318,6 +318,139 @@ public class LiveEventDashboardTests
     }
 
     [Fact]
+    public void Refresh_MapsTrackToCardinalAndIntermediateDirections()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            var expectedByTrack = new Dictionary<int, string>
+            {
+                [0] = "N",
+                [23] = "NNE",
+                [45] = "NE",
+                [68] = "ENE",
+                [90] = "E",
+                [113] = "ESE",
+                [135] = "SE",
+                [158] = "SSE",
+                [180] = "S",
+                [203] = "SSW",
+                [225] = "SW",
+                [248] = "WSW",
+                [270] = "W",
+                [293] = "WNW",
+                [315] = "NW",
+                [338] = "NNW",
+                [-10] = "N",
+                [361] = "N"
+            };
+
+            var journal = new OverheadEventJournal(tempDirectory);
+            var observedAt = DateTimeOffset.Parse("2026-07-29T12:00:00+00:00");
+            var index = 0;
+            foreach (var pair in expectedByTrack)
+            {
+                var aircraftHex = $"TRK{index:00}";
+                journal.Append(new OverheadEvent(
+                    new Aircraft(aircraftHex, $"T{index:00}", 28.46365, -81.08718, 30000, pair.Key, 150, null),
+                    observedAt.AddSeconds(index)));
+                index++;
+            }
+
+            var snapshot = new LiveEventDashboard(
+                journal,
+                staleAfter: TimeSpan.FromMinutes(10),
+                clock: () => DateTimeOffset.Parse("2026-07-29T12:02:00+00:00"),
+                userLatitude: 28.45365,
+                userLongitude: -81.08718).Refresh();
+
+            index = 0;
+            foreach (var pair in expectedByTrack)
+            {
+                var aircraftHex = $"TRK{index:00}";
+                Assert.Equal(pair.Value, snapshot.TodayEvents.Single(item => item.AircraftHex == aircraftHex).CardinalDirectionText);
+                index++;
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Refresh_KeepsLastKnownCompassDirection_WhenLatestStaleObservationHasNoSpeed()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            var journal = new OverheadEventJournal(tempDirectory);
+            journal.Append(new OverheadEvent(
+                new Aircraft("CMP001", "COMP1", 28.46365, -81.08718, 30000, 45, 160, null),
+                DateTimeOffset.Parse("2026-07-29T12:00:00+00:00")));
+            journal.Append(new OverheadEvent(
+                new Aircraft("CMP001", "COMP1", 28.46370, -81.08718, 30000, 270, 0, null),
+                DateTimeOffset.Parse("2026-07-29T12:00:20+00:00")));
+
+            var snapshot = new LiveEventDashboard(
+                journal,
+                staleAfter: TimeSpan.FromSeconds(30),
+                clock: () => DateTimeOffset.Parse("2026-07-29T12:02:00+00:00"),
+                userLatitude: 28.45365,
+                userLongitude: -81.08718).Refresh();
+
+            var staleEvent = snapshot.TodayEvents.Single(item => item.AircraftHex == "CMP001");
+            Assert.Equal("Stale", staleEvent.StatusText);
+            Assert.Equal("NE", staleEvent.CardinalDirectionText);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Refresh_UsesUnknownCompassDirection_WhenNoUsableHeadingExists()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            var journal = new OverheadEventJournal(tempDirectory);
+            journal.Append(new OverheadEvent(
+                new Aircraft("UNK001", "NOHD", 28.46365, -81.08718, 30000, 180, 0, null),
+                DateTimeOffset.Parse("2026-07-29T12:00:00+00:00")));
+
+            var snapshot = new LiveEventDashboard(
+                journal,
+                staleAfter: TimeSpan.FromMinutes(10),
+                clock: () => DateTimeOffset.Parse("2026-07-29T12:02:00+00:00"),
+                userLatitude: 28.45365,
+                userLongitude: -81.08718).Refresh();
+
+            Assert.Equal("Unknown", snapshot.TodayEvents.Single(item => item.AircraftHex == "UNK001").CardinalDirectionText);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task RefreshAsync_ReturnsQuickly_WhenHexDbLookupIsSlow()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));

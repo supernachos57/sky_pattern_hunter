@@ -58,7 +58,12 @@
 
         <TabControl Grid.Row="4" Background="{StaticResource CardBackground}" BorderThickness="0" Padding="16">
             <TabItem Header="Active">
-                <ListView ItemsSource="{Binding ActiveEvents}" Margin="0,12,0,0">
+                <StackPanel Margin="0,12,0,0">
+                    <TextBlock Text="Compass legend: N, NE, E, SE, S, SW, W, NW with intermediate points (NNE, ENE, ESE, SSE, SSW, WSW, WNW, NNW)."
+                               Foreground="{StaticResource MutedBrush}"
+                               Margin="0,0,0,8"
+                               TextWrapping="Wrap" />
+                    <ListView ItemsSource="{Binding ActiveEvents}">
                     <ListView.View>
                         <GridView>
                             <GridViewColumn Header="Observed" DisplayMemberBinding="{Binding ObservedAtText}" Width="185" />
@@ -67,14 +72,21 @@
                             <GridViewColumn Header="Altitude" DisplayMemberBinding="{Binding AltitudeText}" Width="120" />
                             <GridViewColumn Header="Vertical" DisplayMemberBinding="{Binding AltitudeTrendText}" Width="110" />
                             <GridViewColumn Header="Direction" DisplayMemberBinding="{Binding DirectionText}" Width="95" />
+                            <GridViewColumn Header="Compass" DisplayMemberBinding="{Binding CardinalDirectionText}" Width="95" />
                             <GridViewColumn Header="Speed" DisplayMemberBinding="{Binding SpeedText}" Width="90" />
                             <GridViewColumn Header="MPH" DisplayMemberBinding="{Binding MphText}" Width="90" />
                         </GridView>
                     </ListView.View>
-                </ListView>
+                    </ListView>
+                </StackPanel>
             </TabItem>
             <TabItem Header="Today">
-                <ListView ItemsSource="{Binding TodayEvents}" Margin="0,12,0,0">
+                <StackPanel Margin="0,12,0,0">
+                    <TextBlock Text="Compass legend: N, NE, E, SE, S, SW, W, NW with intermediate points (NNE, ENE, ESE, SSE, SSW, WSW, WNW, NNW)."
+                               Foreground="{StaticResource MutedBrush}"
+                               Margin="0,0,0,8"
+                               TextWrapping="Wrap" />
+                    <ListView ItemsSource="{Binding TodayEvents}">
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
                             <Style.Triggers>
@@ -93,11 +105,13 @@
                             <GridViewColumn Header="Altitude" DisplayMemberBinding="{Binding AltitudeText}" Width="120" />
                             <GridViewColumn Header="Vertical" DisplayMemberBinding="{Binding AltitudeTrendText}" Width="110" />
                             <GridViewColumn Header="Direction" DisplayMemberBinding="{Binding DirectionText}" Width="95" />
+                            <GridViewColumn Header="Compass" DisplayMemberBinding="{Binding CardinalDirectionText}" Width="95" />
                             <GridViewColumn Header="Speed" DisplayMemberBinding="{Binding SpeedText}" Width="90" />
                             <GridViewColumn Header="MPH" DisplayMemberBinding="{Binding MphText}" Width="90" />
                         </GridView>
                     </ListView.View>
-                </ListView>
+                    </ListView>
+                </StackPanel>
             </TabItem>
             <TabItem Header="Settings">
                 <StackPanel Margin="0,12,0,0">
