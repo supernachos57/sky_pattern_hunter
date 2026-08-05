@@ -63,6 +63,16 @@ public static class ApplicationSettingsValidator
             errors.Add("DashboardStaleAfterSeconds must be greater than 0.");
         }
 
+        if (settings.HistoryDays <= 0)
+        {
+            errors.Add("HistoryDays must be greater than 0.");
+        }
+
+        if (settings.FlightHistorySampleSeconds <= 0)
+        {
+            errors.Add("FlightHistorySampleSeconds must be greater than 0.");
+        }
+
         if (settings.ReadsbPort <= 0 || settings.ReadsbPort > 65535)
         {
             errors.Add("ReadsbPort must be between 1 and 65535.");

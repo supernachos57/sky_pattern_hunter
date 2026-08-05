@@ -17,7 +17,7 @@ Sky Pattern Hunter follows Clean Architecture with four layers:
 - ADS‑B data reader (TCP/HTTP from Raspberry Pi).
 - ML.NET model trainers + predictors.
 - Discord notification provider.
-- File-based storage (JSONL), with retention and summarization controls.
+- SQLite flight history with retention, sampled path points, and metadata snapshots.
 - Configuration loader.
 
 ### 4. Presentation Layer
@@ -42,7 +42,7 @@ Modern `readsb` setups on a Raspberry Pi can expose a continuous, newline-delimi
 - `readsb` on Pi → TCP stream (`tcp://<pi-ip>:30001`) sending one JSON object per line.
 - Ingestion component: a small TCP client that reads each line, parses JSON, and maps fields into the existing normalization pipeline.
 - Normalizer/validator converts raw JSON fields (e.g., `hex`, `flight`, `alt_baro`, `lat`, `lon`, `track`, `speed`) into domain `Aircraft` models.
-- Hand the normalized domain objects to the event detection pipeline or persist as JSONL for ML training.
+- Hand the normalized domain objects to the event detection pipeline; retained flight sessions and path points are persisted in SQLite, with JSONL available as a compatibility export for ML training.
 
 Configuration keys to add or document:
 
@@ -75,18 +75,18 @@ Notes:
 - Event-to-notification mapping and cooldown rules.
 
 ### Storage Subsystem
-**Recommended first-version storage:**  
-**Append-only JSONL (JSON Lines)**  
-- No database needed.  
-- Easy to parse.  
-- Works well with ML.NET.  
-- Low CPU overhead.  
+**Flight-history storage:**
+**SQLite**
+- Flight sessions are grouped by ICAO hex and callsign, with an inactivity boundary.
+- Sampled latitude, longitude, altitude, speed, and heading points retain compact flight paths.
+- Aircraft metadata snapshots are stored once per ICAO hex rather than duplicated for every point.
+- JSONL remains available as a compatibility/export format for ML workflows.
 
 To manage limited disk space:
-- Apply retention windows for raw events (for example, keep 7-30 days of raw data and archive older data).
-- Roll up older records into summarized datasets for trend analysis.
-- Compress archived files and rotate logs.
-- Make storage limits configurable so the app can self-prune when disk usage approaches a threshold.
+- Apply a configurable rolling retention window to sessions and track points.
+- Sample path points at a configurable interval while retaining the latest observation for the live dashboard.
+- Export selected sessions to JSONL for ML preparation when needed.
+- Rotate logs and make storage limits configurable so the app can self-prune when disk usage approaches a threshold.
 
 ### Configuration Subsystem
 - JSON/YAML config files.

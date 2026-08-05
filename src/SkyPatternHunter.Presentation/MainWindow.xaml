@@ -75,8 +75,8 @@
                     </ListView.View>
                 </ListView>
             </TabItem>
-            <TabItem Header="Today">
-                <ListView x:Name="TodayEventsList" ItemsSource="{Binding TodayEvents}" Margin="0,12,0,0" VirtualizingPanel.IsVirtualizing="False">
+            <TabItem Header="History">
+                <ListView x:Name="TodayEventsList" ItemsSource="{Binding HistoryEvents}" Margin="0,12,0,0" VirtualizingPanel.IsVirtualizing="False">
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
                             <Style.Triggers>

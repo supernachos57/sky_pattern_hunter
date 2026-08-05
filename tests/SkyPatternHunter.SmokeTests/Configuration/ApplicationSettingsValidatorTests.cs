@@ -34,6 +34,8 @@ public class ApplicationSettingsValidatorTests
             UserLongitude = -181,
             DetectionThresholdMiles = 0,
             DashboardStaleAfterSeconds = 0,
+            HistoryDays = 0,
+            FlightHistorySampleSeconds = 0,
             ReadsbPort = 70000,
             ReadsbJsonUrl = "not a URL"
         };
@@ -45,6 +47,8 @@ public class ApplicationSettingsValidatorTests
         Assert.Contains(result.Errors, error => error.Contains("UserLongitude", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(result.Errors, error => error.Contains("DetectionThresholdMiles", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(result.Errors, error => error.Contains("DashboardStaleAfterSeconds", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.Errors, error => error.Contains("HistoryDays", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result.Errors, error => error.Contains("FlightHistorySampleSeconds", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(result.Errors, error => error.Contains("ReadsbPort", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(result.Errors, error => error.Contains("ReadsbJsonUrl", StringComparison.OrdinalIgnoreCase));
     }

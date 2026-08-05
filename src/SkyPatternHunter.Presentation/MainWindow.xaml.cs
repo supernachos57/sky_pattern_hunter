@@ -26,7 +26,7 @@ public partial class MainWindow : INotifyPropertyChanged
     private bool _isRefreshing;
 
     public ObservableCollection<RecentEventViewModel> ActiveEvents { get; } = new();
-    public ObservableCollection<RecentEventViewModel> TodayEvents { get; } = new();
+    public ObservableCollection<RecentEventViewModel> HistoryEvents { get; } = new();
 
     private int _eventCount;
     public int EventCount
@@ -71,17 +71,22 @@ public partial class MainWindow : INotifyPropertyChanged
             "SkyPatternHunter",
             "data");
 
-        var journal = new OverheadEventJournal(_settings.DataDirectory);
         _aircraftDatabaseManager = new AircraftDatabaseManager(
             Path.Combine(AppContext.BaseDirectory, "data", "aircraft.csv.gz"),
             _settings.AircraftDataDirectory,
             _settings.AircraftDatabaseSourceUrl);
+        var eventStore = new SqliteFlightHistoryStore(
+            _settings.DataDirectory,
+            _settings.HistoryDays,
+            TimeSpan.FromSeconds(_settings.FlightHistorySampleSeconds),
+            aircraftLookup: new SqliteAircraftLookup(_aircraftDatabaseManager.DatabasePath));
         _dashboard = new LiveEventDashboard(
-            journal,
+            eventStore,
             TimeSpan.FromSeconds(_settings.DashboardStaleAfterSeconds),
             aircraftClient: new SqliteAircraftLookup(_aircraftDatabaseManager.DatabasePath),
             userLatitude: _settings.UserLatitude,
-            userLongitude: _settings.UserLongitude);
+            userLongitude: _settings.UserLongitude,
+            historyDays: _settings.HistoryDays);
         _logger = new FileLogger(_settings.LogFilePath);
 
         InitializeComponent();
@@ -121,10 +126,10 @@ public partial class MainWindow : INotifyPropertyChanged
                 ActiveEvents.Add(eventViewModel);
             }
 
-            TodayEvents.Clear();
+            HistoryEvents.Clear();
             foreach (var eventViewModel in snapshot.TodayEvents)
             {
-                TodayEvents.Add(eventViewModel);
+                HistoryEvents.Add(eventViewModel);
             }
 
             EventCount = snapshot.ActiveAircraftCount;
