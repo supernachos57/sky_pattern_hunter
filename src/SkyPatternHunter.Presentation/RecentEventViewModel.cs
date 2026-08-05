@@ -4,7 +4,7 @@ using SkyPatternHunter.Infrastructure.AdsB;
 
 namespace SkyPatternHunter.Presentation;
 
-public sealed record RecentEventViewModel(string AircraftHex, string? Flight, string AircraftDescription, string ObservedAtText, string UtcOffsetText, string StatusText, string AltitudeText, string AltitudeTrendText, string DirectionText, string SpeedText, string MphText, string LookDirectionText)
+public sealed record RecentEventViewModel(string AircraftHex, string? Flight, string AircraftDescription, string ObservedAtText, string UtcOffsetText, string StatusText, string AltitudeText, string AltitudeTrendText, string DirectionText, string DistanceText, string SpeedText, string MphText, string LookDirectionText)
 {
     public static RecentEventViewModel FromEvent(
         OverheadEvent overheadEvent,
@@ -12,6 +12,7 @@ public sealed record RecentEventViewModel(string AircraftHex, string? Flight, st
         string? altitudeTrendText = null,
         string? directionText = null,
         string? lookDirectionText = null,
+        string? distanceText = null,
         AircraftDetails? aircraftDetails = null)
     {
         var localObservedAt = overheadEvent.ObservedAt.ToLocalTime();
@@ -23,6 +24,7 @@ public sealed record RecentEventViewModel(string AircraftHex, string? Flight, st
         var trendText = altitudeTrendText ?? "Level";
         var movementDirectionText = directionText ?? "Coming";
         var lookText = lookDirectionText ?? "Unknown";
+        var distance = distanceText ?? "Unknown";
 
         return new RecentEventViewModel(
             overheadEvent.Aircraft.Hex,
@@ -34,6 +36,7 @@ public sealed record RecentEventViewModel(string AircraftHex, string? Flight, st
             $"{overheadEvent.Aircraft.Altitude} ft",
             trendText,
             movementDirectionText,
+            distance,
             speedText,
             mphText,
             lookText);

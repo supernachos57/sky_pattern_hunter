@@ -63,13 +63,14 @@
                         <GridView>
                             <GridViewColumn Header="Observed" DisplayMemberBinding="{Binding ObservedAtText}" Width="Auto" />
                             <GridViewColumn Header="Flight" DisplayMemberBinding="{Binding Flight}" Width="Auto" />
-                            <GridViewColumn Header="Aircraft" DisplayMemberBinding="{Binding AircraftDescription}" Width="Auto" />
+                            <GridViewColumn Header="Distance" DisplayMemberBinding="{Binding DistanceText}" Width="Auto" />
                             <GridViewColumn Header="Look Toward" DisplayMemberBinding="{Binding LookDirectionText}" Width="Auto" />
                             <GridViewColumn Header="Direction" DisplayMemberBinding="{Binding DirectionText}" Width="Auto" />
                             <GridViewColumn Header="Altitude" DisplayMemberBinding="{Binding AltitudeText}" Width="Auto" />
                             <GridViewColumn Header="Vertical" DisplayMemberBinding="{Binding AltitudeTrendText}" Width="Auto" />
                             <GridViewColumn Header="Speed" DisplayMemberBinding="{Binding SpeedText}" Width="Auto" />
                             <GridViewColumn Header="MPH" DisplayMemberBinding="{Binding MphText}" Width="Auto" />
+                            <GridViewColumn Header="Aircraft" DisplayMemberBinding="{Binding AircraftDescription}" Width="Auto" />
                         </GridView>
                     </ListView.View>
                 </ListView>
@@ -90,13 +91,14 @@
                             <GridViewColumn Header="Observed" DisplayMemberBinding="{Binding ObservedAtText}" Width="Auto" />
                             <GridViewColumn Header="Status" DisplayMemberBinding="{Binding StatusText}" Width="Auto" />
                             <GridViewColumn Header="Flight" DisplayMemberBinding="{Binding Flight}" Width="Auto" />
-                            <GridViewColumn Header="Aircraft" DisplayMemberBinding="{Binding AircraftDescription}" Width="Auto" />
+                            <GridViewColumn Header="Distance" DisplayMemberBinding="{Binding DistanceText}" Width="Auto" />
                             <GridViewColumn Header="Look Toward" DisplayMemberBinding="{Binding LookDirectionText}" Width="Auto" />
                             <GridViewColumn Header="Direction" DisplayMemberBinding="{Binding DirectionText}" Width="Auto" />
                             <GridViewColumn Header="Altitude" DisplayMemberBinding="{Binding AltitudeText}" Width="Auto" />
                             <GridViewColumn Header="Vertical" DisplayMemberBinding="{Binding AltitudeTrendText}" Width="Auto" />
                             <GridViewColumn Header="Speed" DisplayMemberBinding="{Binding SpeedText}" Width="Auto" />
                             <GridViewColumn Header="MPH" DisplayMemberBinding="{Binding MphText}" Width="Auto" />
+                            <GridViewColumn Header="Aircraft" DisplayMemberBinding="{Binding AircraftDescription}" Width="Auto" />
                         </GridView>
                     </ListView.View>
                 </ListView>
