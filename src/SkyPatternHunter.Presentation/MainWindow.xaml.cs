@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Windows.Controls;
 using System.Windows.Threading;
 using SkyPatternHunter.Infrastructure.AdsB;
 using SkyPatternHunter.Infrastructure.Configuration;
@@ -128,10 +129,31 @@ public partial class MainWindow : INotifyPropertyChanged
             EventCount = snapshot.ActiveAircraftCount;
             LatestAircraftHex = snapshot.LatestAircraftHex;
             LatestObservedAtText = snapshot.LatestObservedAtText;
+            await Dispatcher.InvokeAsync(AutoSizeEventColumns, DispatcherPriority.Loaded);
         }
         finally
         {
             _isRefreshing = false;
+        }
+    }
+
+    private void AutoSizeEventColumns()
+    {
+        ResetColumnWidths(ActiveEventsList);
+        ResetColumnWidths(TodayEventsList);
+    }
+
+    private static void ResetColumnWidths(ListView listView)
+    {
+        if (listView.View is not GridView gridView)
+        {
+            return;
+        }
+
+        foreach (var column in gridView.Columns)
+        {
+            column.Width = 0;
+            column.Width = double.NaN;
         }
     }
 
