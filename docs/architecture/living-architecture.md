@@ -47,7 +47,7 @@ The system is designed to run continuously with low CPU usage, high extensibilit
 - ADS‑B ingestion  
 - ML.NET pipelines  
 - Discord DM provider  
-- JSONL storage with retention controls  
+- SQLite flight-session storage with retention controls and sampled path points
 - Configuration loader  
 
 ## 3.4 Presentation Layer
@@ -70,14 +70,14 @@ flowchart LR
     MLPredict --> EventStream["Event Stream"]
     EventStream --> NotifyService["Discord DM Notification Service"]
     EventStream --> DesktopUI["Simple Desktop UI"]
-    EventStream --> JsonStorage["JSONL Storage"]
+    EventStream --> FlightStorage["SQLite Flight History"]
 ```
 ---
 
 # 5. ML Architecture Diagram (Mermaid)
 ```mermaid
 flowchart TD
-    JsonData["Historical JSONL Data"] --> PrepData["Data Preparation"]
+    FlightData["SQLite Flight History / JSONL Export"] --> PrepData["Data Preparation"]
     PrepData --> BusyModel["Busy Time Regression Model"]
     PrepData --> BehaviorModel["Behavior Classification Model"]
     PrepData --> AnomalyModel["Anomaly Detection Model"]
@@ -100,7 +100,7 @@ flowchart LR
     ADSBIngest --> PiDevice["Raspberry Pi + RTL-SDR"]
     DesktopApp --> MLModule["ML.NET Module"]
     DesktopApp --> NotifyModule["Discord Notification Module"]
-    DesktopApp --> StorageModule["JSONL Storage"]
+    DesktopApp --> StorageModule["SQLite Flight History"]
 ```
 
 ---
@@ -116,7 +116,7 @@ flowchart TD
     Infrastructure --> ML["ML.NET Pipelines"]
     Infrastructure --> Discord["Discord DM Provider"]
     Infrastructure --> Config["Configuration Loader"]
-    Infrastructure --> Storage["JSONL Storage"]
+    Infrastructure --> Storage["SQLite Flight History"]
 ```
 
 ---

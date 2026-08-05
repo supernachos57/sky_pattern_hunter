@@ -12,6 +12,8 @@ public sealed class ApplicationSettings
     public int ReadsbPort { get; set; } = 30001;
     public string? ReadsbJsonUrl { get; set; }
     public int DashboardStaleAfterSeconds { get; set; } = 60;
+    public int HistoryDays { get; set; } = 30;
+    public int FlightHistorySampleSeconds { get; set; } = 30;
     public string AircraftDatabaseSourceUrl { get; set; } = "https://raw.githubusercontent.com/wiedehopf/tar1090-db/csv/aircraft.csv.gz";
     public string? AircraftDataDirectory { get; set; }
 }

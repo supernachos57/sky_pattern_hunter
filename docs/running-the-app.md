@@ -34,6 +34,10 @@ Replace the example latitude and longitude with the location where overhead even
 
 `DashboardStaleAfterSeconds` controls when an aircraft leaves the `Active` tab and appears as `Stale` at the end of the `Today` tab. The default is 60 seconds.
 
+`HistoryDays` controls the rolling history retained in the event journal and displayed in the `History` tab. The default is 30. Events older than this window are removed as new events are recorded.
+
+`FlightHistorySampleSeconds` controls how often a position is retained for each flight path. The default is 30 seconds. Flight sessions are separated when an aircraft has been inactive for 15 minutes or its callsign changes. Sessions, sampled track points, and aircraft metadata snapshots are stored in `flight-history.db` under `DataDirectory` and pruned using `HistoryDays`.
+
 To verify the configured feed is reachable from PowerShell:
 
 ```powershell
@@ -55,7 +59,7 @@ The WPF window opens and starts live ingestion automatically. Leave it open whil
 ## Confirm ingestion
 
 - The dashboard updates when an aircraft meets the configured overhead threshold.
-- The dashboard looks up six-character ICAO hex values through `https://hexdb.io/api/v1/aircraft/{hex}` and displays the registration, manufacturer, type, and registered owner when available. Lookups are cached for the lifetime of the app.
+- The dashboard uses the validated local aircraft database to display registration, type, description, year, and registered owner when available.
 - Runtime activity and parse errors are written to `logs/sky-pattern-hunter.log`.
 - Detected events are stored as JSONL under the application's `data` directory when no `DataDirectory` is configured.
 

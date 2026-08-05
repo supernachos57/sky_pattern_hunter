@@ -16,25 +16,30 @@ public sealed class LiveEventDashboard
 {
     private const double DepartureDistanceThresholdMiles = 0.25;
     private const int RequiredConsecutiveDepartureReadings = 3;
-    private readonly OverheadEventJournal _journal;
+    private readonly IOverheadEventStore _eventStore;
     private readonly IAircraftLookup? _aircraftClient;
     private readonly TimeSpan _staleAfter;
+    private readonly int _historyDays;
     private readonly Func<DateTimeOffset> _clock;
     private readonly double _userLatitude;
     private readonly double _userLongitude;
     private readonly ConcurrentDictionary<string, LookupState> _detailsLookupByHex = new(StringComparer.OrdinalIgnoreCase);
 
     public LiveEventDashboard(
-        OverheadEventJournal journal,
+        IOverheadEventStore eventStore,
         TimeSpan? staleAfter = null,
         Func<DateTimeOffset>? clock = null,
         IAircraftLookup? aircraftClient = null,
         double userLatitude = 0,
-        double userLongitude = 0)
+        double userLongitude = 0,
+        int historyDays = 30)
     {
-        _journal = journal;
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(historyDays, 0);
+
+        _eventStore = eventStore;
         _aircraftClient = aircraftClient;
         _staleAfter = staleAfter ?? TimeSpan.FromSeconds(60);
+        _historyDays = historyDays;
         _clock = clock ?? (() => DateTimeOffset.UtcNow);
         _userLatitude = userLatitude;
         _userLongitude = userLongitude;
@@ -43,13 +48,13 @@ public sealed class LiveEventDashboard
     public LiveEventDashboardSnapshot Refresh()
     {
         return CreateSnapshot(
-            _journal.ReadAll(),
+            _eventStore.ReadAll(),
             new Dictionary<string, AircraftDetails?>(StringComparer.OrdinalIgnoreCase));
     }
 
     public Task<LiveEventDashboardSnapshot> RefreshAsync()
     {
-        var events = _journal.ReadAll();
+        var events = _eventStore.ReadAll();
         if (_aircraftClient is null)
         {
             return Task.FromResult(CreateSnapshot(
@@ -113,7 +118,7 @@ public sealed class LiveEventDashboard
         IReadOnlyDictionary<string, AircraftDetails?> detailsByHex)
     {
         var now = _clock();
-        var today = now.ToLocalTime().Date;
+        var historyStart = now.AddDays(-_historyDays);
         var trendByAircraftHex = BuildAltitudeTrendByAircraft(events);
         var directionByAircraftHex = BuildDirectionByAircraft(events, _userLatitude, _userLongitude);
         var latestByAircraft = events
@@ -121,7 +126,7 @@ public sealed class LiveEventDashboard
             .Select(group => group.MaxBy(item => item.ObservedAt)!)
             .ToArray();
         var todayEvents = latestByAircraft
-            .Where(item => item.ObservedAt.ToLocalTime().Date == today)
+            .Where(item => item.ObservedAt >= historyStart)
             .ToArray();
         var activeAircraft = todayEvents
             .Where(item => now - item.ObservedAt <= _staleAfter)

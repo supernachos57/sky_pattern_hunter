@@ -82,6 +82,40 @@ public class LiveEventDashboardTests
     }
 
     [Fact]
+    public void Refresh_ExcludesEventsOlderThanConfiguredHistoryDays()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            var journal = new OverheadEventJournal(tempDirectory);
+            journal.Append(new OverheadEvent(
+                new Aircraft("OLD001", "OLD1", 1, 1, 30000, 90, 400, null),
+                DateTimeOffset.Parse("2026-06-28T12:00:00+00:00")));
+            journal.Append(new OverheadEvent(
+                new Aircraft("NEW001", "NEW1", 1, 1, 30000, 90, 400, null),
+                DateTimeOffset.Parse("2026-07-29T12:00:00+00:00")));
+
+            var snapshot = new LiveEventDashboard(
+                journal,
+                staleAfter: TimeSpan.FromMinutes(10),
+                clock: () => DateTimeOffset.Parse("2026-07-30T12:00:00+00:00"),
+                historyDays: 30).Refresh();
+
+            Assert.Single(snapshot.TodayEvents);
+            Assert.Equal("NEW001", snapshot.TodayEvents[0].AircraftHex);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public void Refresh_KeepsOnlyTheNewestEventForEachAircraft()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));

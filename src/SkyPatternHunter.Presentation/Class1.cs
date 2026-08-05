@@ -12,21 +12,21 @@ namespace SkyPatternHunter.Presentation;
 public sealed class AdsbStartupHost
 {
     private readonly ApplicationSettings _settings;
-    private readonly OverheadEventJournal _journal;
+    private readonly IOverheadEventStore _eventStore;
     private readonly FileLogger _logger;
     private readonly RuntimeIngestionMonitor _monitor;
     private readonly AdsbParser _parser = new();
     private readonly IOverheadEventDetector _detector = new OverheadEventDetector();
 
-    public AdsbStartupHost(ApplicationSettings settings, OverheadEventJournal journal)
-        : this(settings, journal, new FileLogger(settings.LogFilePath), new RuntimeIngestionMonitor())
+    public AdsbStartupHost(ApplicationSettings settings, IOverheadEventStore eventStore)
+        : this(settings, eventStore, new FileLogger(settings.LogFilePath), new RuntimeIngestionMonitor())
     {
     }
 
-    public AdsbStartupHost(ApplicationSettings settings, OverheadEventJournal journal, FileLogger logger, RuntimeIngestionMonitor monitor)
+    public AdsbStartupHost(ApplicationSettings settings, IOverheadEventStore eventStore, FileLogger logger, RuntimeIngestionMonitor monitor)
     {
         _settings = settings;
-        _journal = journal;
+        _eventStore = eventStore;
         _logger = logger;
         _monitor = monitor;
     }
@@ -49,7 +49,26 @@ public sealed class AdsbStartupHost
             throw new InvalidOperationException(message);
         }
 
-        return new AdsbStartupHost(settings, new OverheadEventJournal(settings.DataDirectory));
+        return new AdsbStartupHost(settings, CreateEventStore(settings));
+    }
+
+    private static IOverheadEventStore CreateEventStore(ApplicationSettings settings)
+    {
+        settings.AircraftDataDirectory ??= Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "SkyPatternHunter",
+            "data");
+        var aircraftDatabase = new AircraftDatabaseManager(
+            Path.Combine(AppContext.BaseDirectory, "data", "aircraft.csv.gz"),
+            settings.AircraftDataDirectory,
+            settings.AircraftDatabaseSourceUrl);
+        _ = aircraftDatabase.EnsureDatabase();
+
+        return new SqliteFlightHistoryStore(
+            settings.DataDirectory!,
+            settings.HistoryDays,
+            TimeSpan.FromSeconds(settings.FlightHistorySampleSeconds),
+            aircraftLookup: new SqliteAircraftLookup(aircraftDatabase.DatabasePath));
     }
 
     public async Task<AdsbStartupResult> RunAsync(CancellationToken cancellationToken = default)
@@ -186,7 +205,7 @@ public sealed class AdsbStartupHost
             {
                 _monitor.RecordEventDetected(overheadEvent.Aircraft.Hex);
                 _logger.Information($"Overhead event detected hex={overheadEvent.Aircraft.Hex}.");
-                _journal.Append(overheadEvent);
+                _eventStore.Append(overheadEvent);
                 _monitor.RecordEventPersisted(overheadEvent.Aircraft.Hex);
                 _logger.Information($"Overhead event persisted hex={overheadEvent.Aircraft.Hex}.");
                 eventDetected = true;
@@ -213,20 +232,20 @@ public sealed class AdsbProcessingPipeline
 {
     private readonly AdsbParser _parser = new();
     private readonly IOverheadEventDetector _detector = new OverheadEventDetector();
-    private readonly OverheadEventJournal _journal;
+    private readonly IOverheadEventStore _eventStore;
     private readonly ApplicationSettings _settings;
     private readonly FileLogger _logger;
     private readonly RuntimeIngestionMonitor _monitor;
 
-    public AdsbProcessingPipeline(ApplicationSettings settings, OverheadEventJournal journal)
-        : this(settings, journal, new FileLogger(settings.LogFilePath), new RuntimeIngestionMonitor())
+    public AdsbProcessingPipeline(ApplicationSettings settings, IOverheadEventStore eventStore)
+        : this(settings, eventStore, new FileLogger(settings.LogFilePath), new RuntimeIngestionMonitor())
     {
     }
 
-    public AdsbProcessingPipeline(ApplicationSettings settings, OverheadEventJournal journal, FileLogger logger, RuntimeIngestionMonitor monitor)
+    public AdsbProcessingPipeline(ApplicationSettings settings, IOverheadEventStore eventStore, FileLogger logger, RuntimeIngestionMonitor monitor)
     {
         _settings = settings;
-        _journal = journal;
+        _eventStore = eventStore;
         _logger = logger;
         _monitor = monitor;
     }
@@ -286,7 +305,7 @@ public sealed class AdsbProcessingPipeline
             {
                 _monitor.RecordEventDetected(overheadEvent.Aircraft.Hex);
                 _logger.Information($"Overhead event detected hex={overheadEvent.Aircraft.Hex}.");
-                _journal.Append(overheadEvent);
+                _eventStore.Append(overheadEvent);
                 _monitor.RecordEventPersisted(overheadEvent.Aircraft.Hex);
                 _logger.Information($"Overhead event persisted hex={overheadEvent.Aircraft.Hex}.");
                 eventDetected = true;
