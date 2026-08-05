@@ -227,7 +227,7 @@ public class LiveEventDashboardTests
     }
 
     [Fact]
-    public async Task RefreshAsync_ReturnsQuickly_WhenHexDbLookupIsSlow()
+    public async Task RefreshAsync_ReturnsQuickly_WhenAircraftLookupIsSlow()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDirectory);
@@ -239,12 +239,11 @@ public class LiveEventDashboardTests
                 new Aircraft("AAAA01", "FLT1", 28.45365, -80.98718, 30000, 90, 100, null),
                 DateTimeOffset.Parse("2026-07-29T12:00:00+00:00")));
 
-            using var httpClient = new HttpClient(new DelayedSuccessHandler(TimeSpan.FromSeconds(10)));
             var dashboard = new LiveEventDashboard(
                 journal,
                 staleAfter: TimeSpan.FromMinutes(10),
                 clock: () => DateTimeOffset.Parse("2026-07-29T12:02:00+00:00"),
-                aircraftClient: new HexDbAircraftClient(httpClient),
+                aircraftClient: new DelayedAircraftLookup(TimeSpan.FromSeconds(10)),
                 userLatitude: 28.45365,
                 userLongitude: -81.08718);
 
@@ -409,23 +408,19 @@ public class LiveEventDashboardTests
         }
     }
 
-    private sealed class DelayedSuccessHandler : HttpMessageHandler
+    private sealed class DelayedAircraftLookup : IAircraftLookup
     {
         private readonly TimeSpan _delay;
 
-        public DelayedSuccessHandler(TimeSpan delay)
+        public DelayedAircraftLookup(TimeSpan delay)
         {
             _delay = delay;
         }
 
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        public async Task<AircraftDetails?> GetAircraftAsync(string hex)
         {
-            await Task.Delay(_delay, cancellationToken);
-
-            return new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{}")
-            };
+            await Task.Delay(_delay);
+            return null;
         }
     }
 }
