@@ -14,6 +14,8 @@ public sealed record LiveEventDashboardSnapshot(
 
 public sealed class LiveEventDashboard
 {
+    private const double DepartureDistanceThresholdMiles = 0.25;
+    private const int RequiredConsecutiveDepartureReadings = 3;
     private readonly OverheadEventJournal _journal;
     private readonly IAircraftLookup? _aircraftClient;
     private readonly TimeSpan _staleAfter;
@@ -124,12 +126,12 @@ public sealed class LiveEventDashboard
         var activeAircraft = todayEvents
             .Where(item => now - item.ObservedAt <= _staleAfter)
             .OrderByDescending(item => item.ObservedAt)
-            .Select(item => RecentEventViewModel.FromEvent(item, isStale: false, GetTrend(item, isStale: false), GetDirection(item), GetLookDirection(item), GetDetails(item)))
+            .Select(item => RecentEventViewModel.FromEvent(item, isStale: false, GetTrend(item, isStale: false), GetDirection(item), GetLookDirection(item), GetDistance(item), GetDetails(item)))
             .ToArray();
         var staleAircraft = todayEvents
             .Where(item => now - item.ObservedAt > _staleAfter)
             .OrderByDescending(item => item.ObservedAt)
-            .Select(item => RecentEventViewModel.FromEvent(item, isStale: true, GetTrend(item, isStale: true), GetDirection(item), GetLookDirection(item), GetDetails(item)))
+            .Select(item => RecentEventViewModel.FromEvent(item, isStale: true, GetTrend(item, isStale: true), GetDirection(item), GetLookDirection(item), GetDistance(item), GetDetails(item)))
             .ToArray();
         var latestEvent = todayEvents.MaxBy(item => item.ObservedAt);
 
@@ -170,6 +172,16 @@ public sealed class LiveEventDashboard
         {
             return directionByAircraftHex.GetValueOrDefault(overheadEvent.Aircraft.Hex) ?? "Coming";
         }
+
+        string GetDistance(SkyPatternHunter.Domain.Models.OverheadEvent overheadEvent)
+        {
+            var distanceMiles = CalculateDistanceMiles(
+                _userLatitude,
+                _userLongitude,
+                overheadEvent.Aircraft.Latitude,
+                overheadEvent.Aircraft.Longitude);
+            return $"{distanceMiles:0.0} mi";
+        }
     }
 
     private static Dictionary<string, string> BuildAltitudeTrendByAircraft(IReadOnlyList<SkyPatternHunter.Domain.Models.OverheadEvent> events)
@@ -181,6 +193,7 @@ public sealed class LiveEventDashboard
                 group =>
                 {
                     var ordered = group.OrderByDescending(item => item.ObservedAt).Take(2).ToArray();
+
                     if (ordered.Length < 2)
                     {
                         return "Level";
@@ -214,18 +227,45 @@ public sealed class LiveEventDashboard
                 group => group.Key,
                 group =>
                 {
-                    var ordered = group.OrderByDescending(item => item.ObservedAt).Take(2).ToArray();
-                    if (ordered.Length < 2)
+                    var ordered = group.OrderBy(item => item.ObservedAt).ToArray();
+                    if (ordered.Length < RequiredConsecutiveDepartureReadings + 1)
                     {
                         return "Coming";
                     }
 
-                    var latest = ordered[0].Aircraft;
-                    var previous = ordered[1].Aircraft;
-                    var latestDistance = CalculateDistanceMiles(userLatitude, userLongitude, latest.Latitude, latest.Longitude);
-                    var previousDistance = CalculateDistanceMiles(userLatitude, userLongitude, previous.Latitude, previous.Longitude);
+                    var closestDistance = double.MaxValue;
+                    var consecutiveDepartureReadings = 0;
 
-                    return latestDistance <= previousDistance ? "Coming" : "Going";
+                    foreach (var overheadEvent in ordered)
+                    {
+                        var aircraft = overheadEvent.Aircraft;
+                        var distance = CalculateDistanceMiles(
+                            userLatitude,
+                            userLongitude,
+                            aircraft.Latitude,
+                            aircraft.Longitude);
+
+                        if (distance < closestDistance)
+                        {
+                            closestDistance = distance;
+                            consecutiveDepartureReadings = 0;
+                            continue;
+                        }
+
+                        if (distance - closestDistance < DepartureDistanceThresholdMiles)
+                        {
+                            consecutiveDepartureReadings = 0;
+                            continue;
+                        }
+
+                        consecutiveDepartureReadings++;
+                        if (consecutiveDepartureReadings >= RequiredConsecutiveDepartureReadings)
+                        {
+                            return "Going";
+                        }
+                    }
+
+                    return "Coming";
                 },
                 StringComparer.OrdinalIgnoreCase);
     }

@@ -20,6 +20,7 @@ public partial class MainWindow : INotifyPropertyChanged
     private readonly AircraftDatabaseManager _aircraftDatabaseManager;
     private readonly FileLogger _logger;
     private readonly ApplicationSettings _settings;
+    private readonly Dictionary<GridViewColumn, double> _maximumEventColumnWidths = [];
     private Task? _runtimeTask;
     private bool _runtimeStarted;
     private bool _isRefreshing;
@@ -139,11 +140,15 @@ public partial class MainWindow : INotifyPropertyChanged
 
     private void AutoSizeEventColumns()
     {
-        ResetColumnWidths(ActiveEventsList);
-        ResetColumnWidths(TodayEventsList);
+        SetColumnsToAuto(ActiveEventsList);
+        SetColumnsToAuto(TodayEventsList);
+        ActiveEventsList.UpdateLayout();
+        TodayEventsList.UpdateLayout();
+        LockColumnsAtMaximumWidth(ActiveEventsList);
+        LockColumnsAtMaximumWidth(TodayEventsList);
     }
 
-    private static void ResetColumnWidths(ListView listView)
+    private static void SetColumnsToAuto(ListView listView)
     {
         if (listView.View is not GridView gridView)
         {
@@ -152,8 +157,24 @@ public partial class MainWindow : INotifyPropertyChanged
 
         foreach (var column in gridView.Columns)
         {
-            column.Width = 0;
             column.Width = double.NaN;
+        }
+    }
+
+    private void LockColumnsAtMaximumWidth(ListView listView)
+    {
+        if (listView.View is not GridView gridView)
+        {
+            return;
+        }
+
+        foreach (var column in gridView.Columns)
+        {
+            var maximumWidth = Math.Max(
+                _maximumEventColumnWidths.GetValueOrDefault(column),
+                column.ActualWidth);
+            _maximumEventColumnWidths[column] = maximumWidth;
+            column.Width = maximumWidth;
         }
     }
 
