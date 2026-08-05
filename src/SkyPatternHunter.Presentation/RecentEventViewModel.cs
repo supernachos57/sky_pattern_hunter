@@ -11,7 +11,7 @@ public sealed record RecentEventViewModel(string AircraftHex, string? Flight, st
         bool isStale,
         string? altitudeTrendText = null,
         string? lookDirectionText = null,
-        HexDbAircraft? aircraftDetails = null)
+        AircraftDetails? aircraftDetails = null)
     {
         var localObservedAt = overheadEvent.ObservedAt.ToLocalTime();
         var speedText = overheadEvent.Aircraft.Speed > 0 ? $"{overheadEvent.Aircraft.Speed} kt" : "Unknown";
@@ -36,7 +36,7 @@ public sealed record RecentEventViewModel(string AircraftHex, string? Flight, st
             lookText);
     }
 
-    private static string FormatAircraftDescription(HexDbAircraft? aircraftDetails)
+    private static string FormatAircraftDescription(AircraftDetails? aircraftDetails)
     {
         if (aircraftDetails is null)
         {
@@ -46,9 +46,10 @@ public sealed record RecentEventViewModel(string AircraftHex, string? Flight, st
         var details = new[]
         {
             aircraftDetails.Registration,
-            aircraftDetails.Manufacturer,
-            aircraftDetails.Type,
-            aircraftDetails.RegisteredOwners
+            aircraftDetails.TypeCode,
+            aircraftDetails.Description,
+            aircraftDetails.Year,
+            aircraftDetails.RegisteredOwner
         }.Where(value => !string.IsNullOrWhiteSpace(value));
 
         return string.Join(" | ", details.DefaultIfEmpty("Unknown"));

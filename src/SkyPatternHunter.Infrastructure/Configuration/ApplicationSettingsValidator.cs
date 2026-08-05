@@ -85,6 +85,12 @@ public static class ApplicationSettingsValidator
             errors.Add("DataDirectory must not be empty.");
         }
 
+        if (!Uri.TryCreate(settings.AircraftDatabaseSourceUrl, UriKind.Absolute, out var aircraftDatabaseSourceUri) ||
+            aircraftDatabaseSourceUri.Scheme != Uri.UriSchemeHttps)
+        {
+            errors.Add("AircraftDatabaseSourceUrl must be an absolute HTTPS URL.");
+        }
+
         return errors.Count == 0 ? ApplicationSettingsValidationResult.Success() : ApplicationSettingsValidationResult.Failure(errors);
     }
 }

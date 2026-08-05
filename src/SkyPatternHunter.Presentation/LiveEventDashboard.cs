@@ -15,7 +15,7 @@ public sealed record LiveEventDashboardSnapshot(
 public sealed class LiveEventDashboard
 {
     private readonly OverheadEventJournal _journal;
-    private readonly HexDbAircraftClient? _aircraftClient;
+    private readonly IAircraftLookup? _aircraftClient;
     private readonly TimeSpan _staleAfter;
     private readonly Func<DateTimeOffset> _clock;
     private readonly double _userLatitude;
@@ -26,7 +26,7 @@ public sealed class LiveEventDashboard
         OverheadEventJournal journal,
         TimeSpan? staleAfter = null,
         Func<DateTimeOffset>? clock = null,
-        HexDbAircraftClient? aircraftClient = null,
+        IAircraftLookup? aircraftClient = null,
         double userLatitude = 0,
         double userLongitude = 0)
     {
@@ -42,7 +42,7 @@ public sealed class LiveEventDashboard
     {
         return CreateSnapshot(
             _journal.ReadAll(),
-            new Dictionary<string, HexDbAircraft?>(StringComparer.OrdinalIgnoreCase));
+            new Dictionary<string, AircraftDetails?>(StringComparer.OrdinalIgnoreCase));
     }
 
     public Task<LiveEventDashboardSnapshot> RefreshAsync()
@@ -52,7 +52,7 @@ public sealed class LiveEventDashboard
         {
             return Task.FromResult(CreateSnapshot(
                 events,
-                new Dictionary<string, HexDbAircraft?>(StringComparer.OrdinalIgnoreCase)));
+                new Dictionary<string, AircraftDetails?>(StringComparer.OrdinalIgnoreCase)));
         }
 
         var aircraftHexes = events
@@ -65,7 +65,7 @@ public sealed class LiveEventDashboard
             _detailsLookupByHex.GetOrAdd(hex, StartLookup);
         }
 
-        var detailsByHex = new Dictionary<string, HexDbAircraft?>(StringComparer.OrdinalIgnoreCase);
+        var detailsByHex = new Dictionary<string, AircraftDetails?>(StringComparer.OrdinalIgnoreCase);
         foreach (var hex in aircraftHexes)
         {
             if (!_detailsLookupByHex.TryGetValue(hex, out var state))
@@ -108,7 +108,7 @@ public sealed class LiveEventDashboard
 
     private LiveEventDashboardSnapshot CreateSnapshot(
         IReadOnlyList<SkyPatternHunter.Domain.Models.OverheadEvent> events,
-        IReadOnlyDictionary<string, HexDbAircraft?> detailsByHex)
+        IReadOnlyDictionary<string, AircraftDetails?> detailsByHex)
     {
         var now = _clock();
         var today = now.ToLocalTime().Date;
@@ -141,7 +141,7 @@ public sealed class LiveEventDashboard
             activeAircraft,
             activeAircraft.Concat(staleAircraft).ToArray());
 
-        HexDbAircraft? GetDetails(SkyPatternHunter.Domain.Models.OverheadEvent overheadEvent)
+        AircraftDetails? GetDetails(SkyPatternHunter.Domain.Models.OverheadEvent overheadEvent)
         {
             return detailsByHex.GetValueOrDefault(overheadEvent.Aircraft.Hex);
         }
@@ -197,11 +197,13 @@ public sealed class LiveEventDashboard
                 },
                 StringComparer.OrdinalIgnoreCase);
     }
-    private sealed record LookupState(bool IsCompleted, HexDbAircraft? Details)
+    public void ClearAircraftLookupCache() => _detailsLookupByHex.Clear();
+
+    private sealed record LookupState(bool IsCompleted, AircraftDetails? Details)
     {
         public static LookupState Pending { get; } = new(false, null);
 
-        public static LookupState Completed(HexDbAircraft? details)
+        public static LookupState Completed(AircraftDetails? details)
         {
             return new LookupState(true, details);
         }

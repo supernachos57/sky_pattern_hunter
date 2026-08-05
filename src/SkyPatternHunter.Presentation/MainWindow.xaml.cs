@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
-using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Windows.Threading;
 using SkyPatternHunter.Infrastructure.AdsB;
@@ -17,7 +16,7 @@ public partial class MainWindow : INotifyPropertyChanged
     private readonly LiveEventDashboard _dashboard;
     private readonly DispatcherTimer _refreshTimer;
     private readonly CancellationTokenSource _runtimeCancellationTokenSource = new();
-    private readonly HttpClient _hexDbHttpClient = new();
+    private readonly AircraftDatabaseManager _aircraftDatabaseManager;
     private readonly FileLogger _logger;
     private readonly ApplicationSettings _settings;
     private Task? _runtimeTask;
@@ -65,12 +64,20 @@ public partial class MainWindow : INotifyPropertyChanged
     {
         _settings = new JsonConfigurationService().GetSettings();
         _settings.DataDirectory ??= Path.Combine(AppContext.BaseDirectory, "data");
+        _settings.AircraftDataDirectory ??= Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "SkyPatternHunter",
+            "data");
 
         var journal = new OverheadEventJournal(_settings.DataDirectory);
+        _aircraftDatabaseManager = new AircraftDatabaseManager(
+            Path.Combine(AppContext.BaseDirectory, "data", "aircraft.csv.gz"),
+            _settings.AircraftDataDirectory,
+            _settings.AircraftDatabaseSourceUrl);
         _dashboard = new LiveEventDashboard(
             journal,
             TimeSpan.FromSeconds(_settings.DashboardStaleAfterSeconds),
-            aircraftClient: new HexDbAircraftClient(_hexDbHttpClient),
+            aircraftClient: new SqliteAircraftLookup(_aircraftDatabaseManager.DatabasePath),
             userLatitude: _settings.UserLatitude,
             userLongitude: _settings.UserLongitude);
         _logger = new FileLogger(_settings.LogFilePath);
@@ -80,6 +87,7 @@ public partial class MainWindow : INotifyPropertyChanged
         RuntimeStatusMessage = $"Ready. Waiting for live feed at {ReadsbJsonUrl}.";
 
         _ = RefreshFromJournalAsync();
+        _ = InitializeAircraftDatabaseAsync();
 
         _refreshTimer = new DispatcherTimer
         {
@@ -124,6 +132,25 @@ public partial class MainWindow : INotifyPropertyChanged
         finally
         {
             _isRefreshing = false;
+        }
+    }
+
+    private async Task InitializeAircraftDatabaseAsync()
+    {
+        var build = await Task.Run(_aircraftDatabaseManager.EnsureDatabase);
+        _logger.Information(build.Message);
+        if (build.Succeeded)
+        {
+            _dashboard.ClearAircraftLookupCache();
+            await RefreshFromJournalAsync();
+        }
+
+        var update = await _aircraftDatabaseManager.UpdateFromRemoteAsync(_runtimeCancellationTokenSource.Token);
+        _logger.Information(update.Message);
+        if (update.Updated)
+        {
+            _dashboard.ClearAircraftLookupCache();
+            await RefreshFromJournalAsync();
         }
     }
 
@@ -176,7 +203,6 @@ public partial class MainWindow : INotifyPropertyChanged
             }
         }
 
-        _hexDbHttpClient.Dispose();
         _runtimeCancellationTokenSource.Dispose();
     }
 

@@ -4,6 +4,12 @@ Sky Pattern Hunter
 
 Sky Pattern Hunter ingests ADS‑B data (from a Raspberry Pi running `readsb` or similar) to detect and log aircraft patterns and events for downstream ML analysis and notifications.
 
+## Aircraft database
+
+The application ships with a known-good `data/aircraft.csv.gz` fallback, so aircraft details work without an internet connection. At startup it builds a local SQLite database in `%LocalAppData%\SkyPatternHunter\data` when that database is missing or older than the available CSV.
+
+In the background, it checks the configured `AircraftDatabaseSourceUrl` (by default the tar1090/readsb database) using HTTP cache validators. A downloaded update is accepted only after gzip, row-format, ICAO-hex, and SQLite import validation succeeds; until then the last working local database remains in use. Set `AircraftDataDirectory` in `appsettings.json` to override the per-user storage location.
+
 Key features
 - Real-time ADS‑B ingestion (supports `readsb` JSON-over-TCP).
 - Normalization to domain `Aircraft` models and append-only JSONL storage for ML training.
