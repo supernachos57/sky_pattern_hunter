@@ -113,6 +113,7 @@ public sealed class LiveEventDashboard
         var now = _clock();
         var today = now.ToLocalTime().Date;
         var trendByAircraftHex = BuildAltitudeTrendByAircraft(events);
+        var directionByAircraftHex = BuildDirectionByAircraft(events, _userLatitude, _userLongitude);
         var latestByAircraft = events
             .GroupBy(item => item.Aircraft.Hex, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.MaxBy(item => item.ObservedAt)!)
@@ -123,12 +124,12 @@ public sealed class LiveEventDashboard
         var activeAircraft = todayEvents
             .Where(item => now - item.ObservedAt <= _staleAfter)
             .OrderByDescending(item => item.ObservedAt)
-            .Select(item => RecentEventViewModel.FromEvent(item, isStale: false, GetTrend(item, isStale: false), GetLookDirection(item), GetDetails(item)))
+            .Select(item => RecentEventViewModel.FromEvent(item, isStale: false, GetTrend(item, isStale: false), GetDirection(item), GetLookDirection(item), GetDetails(item)))
             .ToArray();
         var staleAircraft = todayEvents
             .Where(item => now - item.ObservedAt > _staleAfter)
             .OrderByDescending(item => item.ObservedAt)
-            .Select(item => RecentEventViewModel.FromEvent(item, isStale: true, GetTrend(item, isStale: true), GetLookDirection(item), GetDetails(item)))
+            .Select(item => RecentEventViewModel.FromEvent(item, isStale: true, GetTrend(item, isStale: true), GetDirection(item), GetLookDirection(item), GetDetails(item)))
             .ToArray();
         var latestEvent = todayEvents.MaxBy(item => item.ObservedAt);
 
@@ -137,7 +138,7 @@ public sealed class LiveEventDashboard
             latestEvent?.Aircraft.Hex ?? "None",
             latestEvent is null
                 ? "No events yet"
-                : RecentEventViewModel.FromEvent(latestEvent, isStale: false, GetTrend(latestEvent, isStale: false), GetLookDirection(latestEvent)).ObservedAtText,
+                : RecentEventViewModel.FromEvent(latestEvent, isStale: false, GetTrend(latestEvent, isStale: false), GetDirection(latestEvent), GetLookDirection(latestEvent)).ObservedAtText,
             activeAircraft,
             activeAircraft.Concat(staleAircraft).ToArray());
 
@@ -163,6 +164,11 @@ public sealed class LiveEventDashboard
                 _userLongitude,
                 overheadEvent.Aircraft.Latitude,
                 overheadEvent.Aircraft.Longitude);
+        }
+
+        string GetDirection(SkyPatternHunter.Domain.Models.OverheadEvent overheadEvent)
+        {
+            return directionByAircraftHex.GetValueOrDefault(overheadEvent.Aircraft.Hex) ?? "Coming";
         }
     }
 
@@ -197,6 +203,58 @@ public sealed class LiveEventDashboard
                 },
                 StringComparer.OrdinalIgnoreCase);
     }
+
+    private static Dictionary<string, string> BuildDirectionByAircraft(
+        IReadOnlyList<SkyPatternHunter.Domain.Models.OverheadEvent> events,
+        double userLatitude,
+        double userLongitude)
+    {
+        return events
+            .GroupBy(item => item.Aircraft.Hex, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group =>
+                {
+                    var ordered = group.OrderByDescending(item => item.ObservedAt).Take(2).ToArray();
+                    if (ordered.Length < 2)
+                    {
+                        return "Coming";
+                    }
+
+                    var latest = ordered[0].Aircraft;
+                    var previous = ordered[1].Aircraft;
+                    var latestDistance = CalculateDistanceMiles(userLatitude, userLongitude, latest.Latitude, latest.Longitude);
+                    var previousDistance = CalculateDistanceMiles(userLatitude, userLongitude, previous.Latitude, previous.Longitude);
+
+                    return latestDistance <= previousDistance ? "Coming" : "Going";
+                },
+                StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static double CalculateDistanceMiles(double startLatitude, double startLongitude, double endLatitude, double endLongitude)
+    {
+        const double EarthRadiusMiles = 3958.7613;
+
+        var startLatitudeRadians = DegreesToRadians(startLatitude);
+        var endLatitudeRadians = DegreesToRadians(endLatitude);
+        var latitudeDeltaRadians = DegreesToRadians(endLatitude - startLatitude);
+        var longitudeDeltaRadians = DegreesToRadians(endLongitude - startLongitude);
+
+        var sinLatitude = Math.Sin(latitudeDeltaRadians / 2);
+        var sinLongitude = Math.Sin(longitudeDeltaRadians / 2);
+
+        var a = (sinLatitude * sinLatitude) +
+                (Math.Cos(startLatitudeRadians) * Math.Cos(endLatitudeRadians) * sinLongitude * sinLongitude);
+        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+
+        return EarthRadiusMiles * c;
+    }
+
+    private static double DegreesToRadians(double degrees)
+    {
+        return degrees * (Math.PI / 180d);
+    }
+
     private sealed record LookupState(bool IsCompleted, HexDbAircraft? Details)
     {
         public static LookupState Pending { get; } = new(false, null);
