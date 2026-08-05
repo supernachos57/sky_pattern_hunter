@@ -299,6 +299,116 @@ public class LiveEventDashboardTests
         }
     }
 
+    [Fact]
+    public void Refresh_SetsDirection_FromLatestAndPreviousReading()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            var journal = new OverheadEventJournal(tempDirectory);
+            journal.Append(new OverheadEvent(
+                new Aircraft("COME01", "IN01", 28.47365, -81.08718, 30000, 90, 100, null),
+                DateTimeOffset.Parse("2026-07-29T12:00:00+00:00")));
+            journal.Append(new OverheadEvent(
+                new Aircraft("COME01", "IN01", 28.46365, -81.08718, 30000, 90, 100, null),
+                DateTimeOffset.Parse("2026-07-29T12:01:00+00:00")));
+
+            journal.Append(new OverheadEvent(
+                new Aircraft("GO01", "OUT1", 28.44365, -81.08718, 30000, 90, 100, null),
+                DateTimeOffset.Parse("2026-07-29T12:00:00+00:00")));
+            journal.Append(new OverheadEvent(
+                new Aircraft("GO01", "OUT1", 28.43365, -81.08718, 30000, 90, 100, null),
+                DateTimeOffset.Parse("2026-07-29T12:01:00+00:00")));
+
+            var snapshot = new LiveEventDashboard(
+                journal,
+                staleAfter: TimeSpan.FromMinutes(10),
+                clock: () => DateTimeOffset.Parse("2026-07-29T12:02:00+00:00"),
+                userLatitude: 28.45365,
+                userLongitude: -81.08718).Refresh();
+
+            Assert.Equal("Coming", snapshot.TodayEvents.Single(item => item.AircraftHex == "COME01").DirectionText);
+            Assert.Equal("Going", snapshot.TodayEvents.Single(item => item.AircraftHex == "GO01").DirectionText);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Refresh_KeepsDirection_ForStaleAircraft()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            var journal = new OverheadEventJournal(tempDirectory);
+            journal.Append(new OverheadEvent(
+                new Aircraft("STALE1", "OLD1", 28.44365, -81.08718, 30000, 90, 400, null),
+                DateTimeOffset.Parse("2026-07-29T12:00:00+00:00")));
+            journal.Append(new OverheadEvent(
+                new Aircraft("STALE1", "OLD1", 28.43365, -81.08718, 30000, 90, 400, null),
+                DateTimeOffset.Parse("2026-07-29T12:01:00+00:00")));
+
+            var snapshot = new LiveEventDashboard(
+                journal,
+                staleAfter: TimeSpan.FromSeconds(30),
+                clock: () => DateTimeOffset.Parse("2026-07-29T12:02:00+00:00"),
+                userLatitude: 28.45365,
+                userLongitude: -81.08718).Refresh();
+
+            Assert.Single(snapshot.TodayEvents);
+            Assert.Equal("Stale", snapshot.TodayEvents[0].StatusText);
+            Assert.Equal("Going", snapshot.TodayEvents[0].DirectionText);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Refresh_DefaultsDirectionToComing_WhenOnlyOneReadingExists()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            var journal = new OverheadEventJournal(tempDirectory);
+            journal.Append(new OverheadEvent(
+                new Aircraft("ONE01", "SOLO", 28.55365, -80.98718, 30000, 90, 100, null),
+                DateTimeOffset.Parse("2026-07-29T12:00:00+00:00")));
+
+            var snapshot = new LiveEventDashboard(
+                journal,
+                staleAfter: TimeSpan.FromMinutes(10),
+                clock: () => DateTimeOffset.Parse("2026-07-29T12:02:00+00:00"),
+                userLatitude: 28.45365,
+                userLongitude: -81.08718).Refresh();
+
+            Assert.Single(snapshot.TodayEvents);
+            Assert.Equal("Coming", snapshot.TodayEvents[0].DirectionText);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
+        }
+    }
+
     private sealed class DelayedSuccessHandler : HttpMessageHandler
     {
         private readonly TimeSpan _delay;
