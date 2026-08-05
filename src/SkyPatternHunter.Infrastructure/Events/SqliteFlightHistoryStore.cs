@@ -96,6 +96,110 @@ public sealed class SqliteFlightHistoryStore : IOverheadEventStore
         return events;
     }
 
+    public FlightHistoryDetails? GetLatestFlightDetails(string icaoHex, string? callsign)
+    {
+        using var connection = OpenConnection();
+        using var sessionCommand = connection.CreateCommand();
+        sessionCommand.CommandText = """
+            SELECT id, icao_hex, callsign, started_at, ended_at
+            FROM flight_sessions
+            WHERE icao_hex = $icaoHex
+              AND (callsign = $callsign OR (callsign IS NULL AND $callsign IS NULL))
+            ORDER BY ended_at DESC
+            LIMIT 1;
+            """;
+        sessionCommand.Parameters.AddWithValue("$icaoHex", icaoHex);
+        sessionCommand.Parameters.AddWithValue("$callsign", (object?)callsign?.Trim() ?? DBNull.Value);
+        using var sessionReader = sessionCommand.ExecuteReader();
+        if (!sessionReader.Read())
+        {
+            return null;
+        }
+
+        var sessionId = sessionReader.GetInt64(0);
+        var session = new FlightSession(
+            sessionId,
+            sessionReader.GetString(1),
+            sessionReader.GetStringOrNull(2),
+            DateTimeOffset.Parse(sessionReader.GetString(3)),
+            DateTimeOffset.Parse(sessionReader.GetString(4)));
+        var metadata = ReadMetadataSnapshot(connection, session.IcaoHex);
+        var points = ReadTrackPoints(connection, sessionId);
+        return new FlightHistoryDetails(session, metadata, points);
+    }
+
+    public IReadOnlyList<FlightHistorySessionSummary> ReadFlightSessions()
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT s.id, s.icao_hex, s.callsign, s.started_at, s.ended_at,
+                   p.observed_at, p.latitude, p.longitude, p.altitude_ft, p.track_deg, p.speed_kt, p.squawk,
+                   m.registration, m.type_code, m.description, m.year, m.registered_owner, m.updated_at
+            FROM flight_sessions s
+            INNER JOIN flight_track_points p ON p.id = (
+                SELECT id FROM flight_track_points
+                WHERE session_id = s.id
+                ORDER BY observed_at DESC
+                LIMIT 1
+            )
+            LEFT JOIN aircraft_metadata_snapshots m ON m.icao_hex = s.icao_hex
+            ORDER BY s.ended_at DESC;
+            """;
+        using var reader = command.ExecuteReader();
+        var sessions = new List<FlightHistorySessionSummary>();
+        while (reader.Read())
+        {
+            sessions.Add(new FlightHistorySessionSummary(
+                new FlightSession(
+                    reader.GetInt64(0),
+                    reader.GetString(1),
+                    reader.GetStringOrNull(2),
+                    DateTimeOffset.Parse(reader.GetString(3)),
+                    DateTimeOffset.Parse(reader.GetString(4))),
+                new FlightTrackPoint(
+                    DateTimeOffset.Parse(reader.GetString(5)),
+                    reader.GetDouble(6),
+                    reader.GetDouble(7),
+                    reader.GetInt32(8),
+                    reader.GetInt32(9),
+                    reader.GetInt32(10),
+                    reader.GetInt32OrNull(11)),
+                reader.IsDBNull(17)
+                    ? null
+                    : new AircraftMetadataSnapshot(
+                        reader.GetStringOrNull(12),
+                        reader.GetStringOrNull(13),
+                        reader.GetStringOrNull(14),
+                        reader.GetStringOrNull(15),
+                        reader.GetStringOrNull(16),
+                        DateTimeOffset.Parse(reader.GetString(17)))));
+        }
+
+        return sessions;
+    }
+
+    public FlightHistoryDetails? GetFlightDetails(long sessionId)
+    {
+        using var connection = OpenConnection();
+        using var sessionCommand = connection.CreateCommand();
+        sessionCommand.CommandText = "SELECT id, icao_hex, callsign, started_at, ended_at FROM flight_sessions WHERE id = $sessionId;";
+        sessionCommand.Parameters.AddWithValue("$sessionId", sessionId);
+        using var sessionReader = sessionCommand.ExecuteReader();
+        if (!sessionReader.Read())
+        {
+            return null;
+        }
+
+        var session = new FlightSession(
+            sessionReader.GetInt64(0),
+            sessionReader.GetString(1),
+            sessionReader.GetStringOrNull(2),
+            DateTimeOffset.Parse(sessionReader.GetString(3)),
+            DateTimeOffset.Parse(sessionReader.GetString(4)));
+        return new FlightHistoryDetails(session, ReadMetadataSnapshot(connection, session.IcaoHex), ReadTrackPoints(connection, session.Id));
+    }
+
     public void PruneOlderThan(DateTimeOffset cutoff)
     {
         using var connection = OpenConnection();
@@ -167,6 +271,54 @@ public sealed class SqliteFlightHistoryStore : IOverheadEventStore
             CREATE INDEX IF NOT EXISTS ix_flight_track_points_observed_at ON flight_track_points(observed_at);
             """;
         command.ExecuteNonQuery();
+    }
+
+    private static AircraftMetadataSnapshot? ReadMetadataSnapshot(SqliteConnection connection, string icaoHex)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT registration, type_code, description, year, registered_owner, updated_at
+            FROM aircraft_metadata_snapshots
+            WHERE icao_hex = $icaoHex;
+            """;
+        command.Parameters.AddWithValue("$icaoHex", icaoHex);
+        using var reader = command.ExecuteReader();
+        return reader.Read()
+            ? new AircraftMetadataSnapshot(
+                reader.GetStringOrNull(0),
+                reader.GetStringOrNull(1),
+                reader.GetStringOrNull(2),
+                reader.GetStringOrNull(3),
+                reader.GetStringOrNull(4),
+                DateTimeOffset.Parse(reader.GetString(5)))
+            : null;
+    }
+
+    private static IReadOnlyList<FlightTrackPoint> ReadTrackPoints(SqliteConnection connection, long sessionId)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT observed_at, latitude, longitude, altitude_ft, track_deg, speed_kt, squawk
+            FROM flight_track_points
+            WHERE session_id = $sessionId
+            ORDER BY observed_at;
+            """;
+        command.Parameters.AddWithValue("$sessionId", sessionId);
+        using var reader = command.ExecuteReader();
+        var points = new List<FlightTrackPoint>();
+        while (reader.Read())
+        {
+            points.Add(new FlightTrackPoint(
+                DateTimeOffset.Parse(reader.GetString(0)),
+                reader.GetDouble(1),
+                reader.GetDouble(2),
+                reader.GetInt32(3),
+                reader.GetInt32(4),
+                reader.GetInt32(5),
+                reader.GetInt32OrNull(6)));
+        }
+
+        return points;
     }
 
     private SqliteConnection OpenConnection()
@@ -321,3 +473,29 @@ file static class SqliteDataReaderExtensions
 
     public static int? GetInt32OrNull(this SqliteDataReader reader, int ordinal) => reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
 }
+
+public sealed record FlightHistoryDetails(
+    FlightSession Session,
+    AircraftMetadataSnapshot? Metadata,
+    IReadOnlyList<FlightTrackPoint> TrackPoints);
+
+public sealed record FlightSession(long Id, string IcaoHex, string? Callsign, DateTimeOffset StartedAt, DateTimeOffset EndedAt);
+
+public sealed record AircraftMetadataSnapshot(
+    string? Registration,
+    string? TypeCode,
+    string? Description,
+    string? Year,
+    string? RegisteredOwner,
+    DateTimeOffset UpdatedAt);
+
+public sealed record FlightTrackPoint(
+    DateTimeOffset ObservedAt,
+    double Latitude,
+    double Longitude,
+    int AltitudeFeet,
+    int TrackDegrees,
+    int SpeedKnots,
+    int? Squawk);
+
+public sealed record FlightHistorySessionSummary(FlightSession Session, FlightTrackPoint LatestPoint, AircraftMetadataSnapshot? Metadata);

@@ -11,8 +11,74 @@
         Foreground="#E2E8F0">
     <Window.Resources>
         <SolidColorBrush x:Key="CardBackground" Color="#172033" />
+        <SolidColorBrush x:Key="ControlBackground" Color="#0B1220" />
+        <SolidColorBrush x:Key="ControlBorderBrush" Color="#27364E" />
         <SolidColorBrush x:Key="AccentBrush" Color="#38BDF8" />
         <SolidColorBrush x:Key="MutedBrush" Color="#94A3B8" />
+        <Style TargetType="TabControl">
+            <Setter Property="Foreground" Value="#E2E8F0" />
+        </Style>
+        <Style TargetType="TabItem">
+            <Setter Property="Background" Value="#172033" />
+            <Setter Property="Foreground" Value="#E2E8F0" />
+            <Setter Property="Padding" Value="10,5" />
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#0B1220" />
+                    <Setter Property="Foreground" Value="#38BDF8" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="ListView">
+            <Setter Property="Background" Value="{StaticResource ControlBackground}" />
+            <Setter Property="Foreground" Value="#E2E8F0" />
+            <Setter Property="BorderBrush" Value="{StaticResource ControlBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style TargetType="ListViewItem">
+            <Setter Property="Foreground" Value="#E2E8F0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="4,2" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                            <GridViewRowPresenter Columns="{Binding View.Columns, RelativeSource={RelativeSource AncestorType=ListView}}" Content="{TemplateBinding Content}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#1E5A8A" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsSelected" Value="True" />
+                                    <Condition Property="IsKeyboardFocusWithin" Value="False" />
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#25496B" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Foreground" Value="#FFFFFF" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="GridViewColumnHeader">
+            <Setter Property="Background" Value="#1E293B" />
+            <Setter Property="Foreground" Value="#E2E8F0" />
+            <Setter Property="BorderBrush" Value="{StaticResource ControlBorderBrush}" />
+            <Setter Property="Padding" Value="8,5" />
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="{StaticResource ControlBackground}" />
+            <Setter Property="Foreground" Value="#E2E8F0" />
+            <Setter Property="BorderBrush" Value="{StaticResource ControlBorderBrush}" />
+        </Style>
     </Window.Resources>
     <Grid Margin="24">
         <Grid.RowDefinitions>
@@ -33,26 +99,31 @@
         <Border Grid.Row="2" Background="{StaticResource CardBackground}" CornerRadius="16" Padding="20">
             <StackPanel>
                 <TextBlock Text="Dashboard" FontSize="20" FontWeight="SemiBold" />
-                <UniformGrid Columns="3" Margin="0,16,0,0">
+                <Grid Margin="0,16,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1*" />
+                        <ColumnDefinition Width="1*" />
+                        <ColumnDefinition Width="4*" />
+                    </Grid.ColumnDefinitions>
                     <Border Background="#0B1220" CornerRadius="12" Margin="0,0,12,0" Padding="16">
                         <StackPanel>
                             <TextBlock Text="Aircraft tracked" Foreground="{StaticResource MutedBrush}" />
                             <TextBlock Text="{Binding EventCount}" FontSize="28" FontWeight="SemiBold" Margin="0,8,0,0" />
                         </StackPanel>
                     </Border>
-                    <Border Background="#0B1220" CornerRadius="12" Margin="0,0,12,0" Padding="16">
+                    <Border Grid.Column="1" Background="#0B1220" CornerRadius="12" Margin="0,0,12,0" Padding="16">
                         <StackPanel>
                             <TextBlock Text="Latest aircraft" Foreground="{StaticResource MutedBrush}" />
                             <TextBlock Text="{Binding LatestAircraftHex}" FontSize="28" FontWeight="SemiBold" Margin="0,8,0,0" />
                         </StackPanel>
                     </Border>
-                    <Border Background="#0B1220" CornerRadius="12" Padding="16">
+                    <Border Grid.Column="2" Background="#0B1220" CornerRadius="12" Padding="16">
                         <StackPanel>
                             <TextBlock Text="Last observed" Foreground="{StaticResource MutedBrush}" />
                             <TextBlock Text="{Binding LatestObservedAtText}" FontSize="28" FontWeight="SemiBold" Margin="0,8,0,0" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
-                </UniformGrid>
+                </Grid>
             </StackPanel>
         </Border>
 
@@ -76,28 +147,16 @@
                 </ListView>
             </TabItem>
             <TabItem Header="History">
-                <ListView x:Name="TodayEventsList" ItemsSource="{Binding HistoryEvents}" Margin="0,12,0,0" VirtualizingPanel.IsVirtualizing="False">
-                    <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding StatusText}" Value="Stale">
-                                    <Setter Property="Opacity" Value="0.55" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ListView.ItemContainerStyle>
+                <ListView x:Name="HistoryEventsList" ItemsSource="{Binding HistoryFlights}" Margin="0,12,0,0" VirtualizingPanel.IsVirtualizing="False">
                     <ListView.View>
                         <GridView>
                             <GridViewColumn Header="Observed" DisplayMemberBinding="{Binding ObservedAtText}" Width="Auto" />
-                            <GridViewColumn Header="Status" DisplayMemberBinding="{Binding StatusText}" Width="Auto" />
                             <GridViewColumn Header="Flight" DisplayMemberBinding="{Binding Flight}" Width="Auto" />
-                            <GridViewColumn Header="Distance" DisplayMemberBinding="{Binding DistanceText}" Width="Auto" />
-                            <GridViewColumn Header="Look Toward" DisplayMemberBinding="{Binding LookDirectionText}" Width="Auto" />
-                            <GridViewColumn Header="Direction" DisplayMemberBinding="{Binding DirectionText}" Width="Auto" />
+                            <GridViewColumn Header="ICAO" DisplayMemberBinding="{Binding AircraftHex}" Width="Auto" />
+                            <GridViewColumn Header="Duration" DisplayMemberBinding="{Binding DurationText}" Width="Auto" />
+                            <GridViewColumn Header="Distance" DisplayMemberBinding="{Binding PositionText}" Width="Auto" />
                             <GridViewColumn Header="Altitude" DisplayMemberBinding="{Binding AltitudeText}" Width="Auto" />
-                            <GridViewColumn Header="Vertical" DisplayMemberBinding="{Binding AltitudeTrendText}" Width="Auto" />
                             <GridViewColumn Header="Speed" DisplayMemberBinding="{Binding SpeedText}" Width="Auto" />
-                            <GridViewColumn Header="MPH" DisplayMemberBinding="{Binding MphText}" Width="Auto" />
                             <GridViewColumn Header="Aircraft" DisplayMemberBinding="{Binding AircraftDescription}" Width="Auto" />
                         </GridView>
                     </ListView.View>
