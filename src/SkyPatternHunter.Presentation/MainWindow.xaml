@@ -65,6 +65,7 @@
                             <GridViewColumn Header="Flight" DisplayMemberBinding="{Binding Flight}" Width="140" />
                             <GridViewColumn Header="Aircraft" DisplayMemberBinding="{Binding AircraftDescription}" Width="320" />
                             <GridViewColumn Header="Look Toward" DisplayMemberBinding="{Binding LookDirectionText}" Width="140" />
+                            <GridViewColumn Header="Direction" DisplayMemberBinding="{Binding DirectionText}" Width="95" />
                             <GridViewColumn Header="Altitude" DisplayMemberBinding="{Binding AltitudeText}" Width="120" />
                             <GridViewColumn Header="Vertical" DisplayMemberBinding="{Binding AltitudeTrendText}" Width="110" />
                             <GridViewColumn Header="Speed" DisplayMemberBinding="{Binding SpeedText}" Width="90" />
@@ -91,6 +92,7 @@
                             <GridViewColumn Header="Flight" DisplayMemberBinding="{Binding Flight}" Width="140" />
                             <GridViewColumn Header="Aircraft" DisplayMemberBinding="{Binding AircraftDescription}" Width="320" />
                             <GridViewColumn Header="Look Toward" DisplayMemberBinding="{Binding LookDirectionText}" Width="140" />
+                            <GridViewColumn Header="Direction" DisplayMemberBinding="{Binding DirectionText}" Width="95" />
                             <GridViewColumn Header="Altitude" DisplayMemberBinding="{Binding AltitudeText}" Width="120" />
                             <GridViewColumn Header="Vertical" DisplayMemberBinding="{Binding AltitudeTrendText}" Width="110" />
                             <GridViewColumn Header="Speed" DisplayMemberBinding="{Binding SpeedText}" Width="90" />

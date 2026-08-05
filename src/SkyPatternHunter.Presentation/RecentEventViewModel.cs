@@ -4,12 +4,13 @@ using SkyPatternHunter.Infrastructure.AdsB;
 
 namespace SkyPatternHunter.Presentation;
 
-public sealed record RecentEventViewModel(string AircraftHex, string? Flight, string AircraftDescription, string ObservedAtText, string UtcOffsetText, string StatusText, string AltitudeText, string AltitudeTrendText, string SpeedText, string MphText, string LookDirectionText)
+public sealed record RecentEventViewModel(string AircraftHex, string? Flight, string AircraftDescription, string ObservedAtText, string UtcOffsetText, string StatusText, string AltitudeText, string AltitudeTrendText, string DirectionText, string SpeedText, string MphText, string LookDirectionText)
 {
     public static RecentEventViewModel FromEvent(
         OverheadEvent overheadEvent,
         bool isStale,
         string? altitudeTrendText = null,
+        string? directionText = null,
         string? lookDirectionText = null,
         AircraftDetails? aircraftDetails = null)
     {
@@ -20,6 +21,7 @@ public sealed record RecentEventViewModel(string AircraftHex, string? Flight, st
             : "Unknown";
         var aircraftDescription = FormatAircraftDescription(aircraftDetails);
         var trendText = altitudeTrendText ?? "Level";
+        var movementDirectionText = directionText ?? "Coming";
         var lookText = lookDirectionText ?? "Unknown";
 
         return new RecentEventViewModel(
@@ -31,6 +33,7 @@ public sealed record RecentEventViewModel(string AircraftHex, string? Flight, st
             isStale ? "Stale" : "Active",
             $"{overheadEvent.Aircraft.Altitude} ft",
             trendText,
+            movementDirectionText,
             speedText,
             mphText,
             lookText);
