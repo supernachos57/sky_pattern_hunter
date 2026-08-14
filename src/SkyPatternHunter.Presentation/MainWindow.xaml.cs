@@ -126,7 +126,7 @@ public partial class MainWindow : INotifyPropertyChanged
 
         try
         {
-            var snapshot = await Task.Run(_dashboard.Refresh);
+            var snapshot = await Task.Run(_dashboard.RefreshAsync);
 
             ActiveEvents.Clear();
             foreach (var eventViewModel in snapshot.ActiveEvents)
