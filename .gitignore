@@ -4,3 +4,6 @@ TestResults/
 .vs/
 data/*.db
 data/aircraft-update.json
+publish/
+logs/
+logs/
