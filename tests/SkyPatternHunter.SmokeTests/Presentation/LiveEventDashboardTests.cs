@@ -332,6 +332,76 @@ public class LiveEventDashboardTests
     }
 
     [Fact]
+    public async Task RefreshAsync_UsesCompletedAircraftLookupForActiveAircraft()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            var journal = new OverheadEventJournal(tempDirectory);
+            journal.Append(new OverheadEvent(
+                new Aircraft("AAAA01", "FLT1", 28.45365, -80.98718, 30000, 90, 100, null),
+                DateTimeOffset.Parse("2026-07-29T12:00:00+00:00")));
+
+            var dashboard = new LiveEventDashboard(
+                journal,
+                staleAfter: TimeSpan.FromMinutes(10),
+                clock: () => DateTimeOffset.Parse("2026-07-29T12:02:00+00:00"),
+                aircraftClient: new ImmediateAircraftLookup(),
+                userLatitude: 28.45365,
+                userLongitude: -81.08718);
+
+            var snapshot = await dashboard.RefreshAsync();
+
+            Assert.Single(snapshot.ActiveEvents);
+            Assert.Equal("N123AB | B738 | Boeing 737-800 | 2018 | Test Airlines", snapshot.ActiveEvents[0].AircraftDescription);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task RefreshAsync_RetriesLookupAfterNoAircraftDetailsWereAvailable()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+
+        try
+        {
+            var journal = new OverheadEventJournal(tempDirectory);
+            journal.Append(new OverheadEvent(
+                new Aircraft("AAAA01", "FLT1", 28.45365, -80.98718, 30000, 90, 100, null),
+                DateTimeOffset.Parse("2026-07-29T12:00:00+00:00")));
+            var dashboard = new LiveEventDashboard(
+                journal,
+                staleAfter: TimeSpan.FromMinutes(10),
+                clock: () => DateTimeOffset.Parse("2026-07-29T12:02:00+00:00"),
+                aircraftClient: new InitiallyUnavailableAircraftLookup(),
+                userLatitude: 28.45365,
+                userLongitude: -81.08718);
+
+            var initialSnapshot = await dashboard.RefreshAsync();
+            var resolvedSnapshot = await dashboard.RefreshAsync();
+
+            Assert.Equal("Unknown", initialSnapshot.ActiveEvents[0].AircraftDescription);
+            Assert.Equal("N123AB | B738 | Boeing 737-800 | 2018 | Test Airlines", resolvedSnapshot.ActiveEvents[0].AircraftDescription);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public void Refresh_SetsIntermediateLookDirection_FromConfiguredUserPosition()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), "sky-pattern-hunter-tests", Guid.NewGuid().ToString("N"));
@@ -543,6 +613,27 @@ public class LiveEventDashboardTests
         {
             await Task.Delay(_delay);
             return null;
+        }
+    }
+
+    private sealed class ImmediateAircraftLookup : IAircraftLookup
+    {
+        public Task<AircraftDetails?> GetAircraftAsync(string hex)
+        {
+            return Task.FromResult<AircraftDetails?>(new AircraftDetails("N123AB", "B738", "Boeing 737-800", "2018", "Test Airlines"));
+        }
+    }
+
+    private sealed class InitiallyUnavailableAircraftLookup : IAircraftLookup
+    {
+        private int _lookupCount;
+
+        public Task<AircraftDetails?> GetAircraftAsync(string hex)
+        {
+            _lookupCount++;
+            return Task.FromResult<AircraftDetails?>(_lookupCount == 1
+                ? null
+                : new AircraftDetails("N123AB", "B738", "Boeing 737-800", "2018", "Test Airlines"));
         }
     }
 }

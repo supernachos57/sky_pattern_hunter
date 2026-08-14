@@ -69,7 +69,10 @@ public sealed class LiveEventDashboard
 
         foreach (var hex in aircraftHexes)
         {
-            _detailsLookupByHex.GetOrAdd(hex, StartLookup);
+            if (_detailsLookupByHex.TryAdd(hex, LookupState.Pending))
+            {
+                _ = LookupAndStoreAsync(hex);
+            }
         }
 
         var detailsByHex = new Dictionary<string, AircraftDetails?>(StringComparer.OrdinalIgnoreCase);
@@ -85,14 +88,7 @@ public sealed class LiveEventDashboard
                 detailsByHex[hex] = state.Details;
             }
         }
-
         return Task.FromResult(CreateSnapshot(events, detailsByHex));
-
-        LookupState StartLookup(string hex)
-        {
-            _ = LookupAndStoreAsync(hex);
-            return LookupState.Pending;
-        }
     }
 
     private async Task LookupAndStoreAsync(string hex)
@@ -105,12 +101,17 @@ public sealed class LiveEventDashboard
         try
         {
             var details = await _aircraftClient.GetAircraftAsync(hex);
-            _detailsLookupByHex[hex] = LookupState.Completed(details);
+            if (details is not null)
+            {
+                _detailsLookupByHex[hex] = LookupState.Completed(details);
+                return;
+            }
         }
         catch
         {
-            _detailsLookupByHex[hex] = LookupState.Completed(null);
         }
+
+        _detailsLookupByHex.TryRemove(hex, out _);
     }
 
     private LiveEventDashboardSnapshot CreateSnapshot(
